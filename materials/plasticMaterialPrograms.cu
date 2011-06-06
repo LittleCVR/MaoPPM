@@ -74,7 +74,7 @@ rtDeclareVariable(float3, shadingNormal  , attribute shading_normal  , );
 
 rtDeclareVariable(float3, Kd, , );
 rtDeclareVariable(float3, Ks, , );
-rtDeclareVariable(float , invRoughness, , );
+rtDeclareVariable(float , exponent, , );
 
 
 
@@ -107,10 +107,10 @@ RT_PROGRAM void handlePixelSamplingRayClosestHit()
     pixelSample.incidentDirection  = -direction;
     pixelSample.normal             = ffnormal;
 
-    pixelSample.material     = 2;
-    pixelSample.Kd           = Kd;
-    pixelSample.Ks           = Ks;
-    pixelSample.invRoughness = invRoughness;
+    pixelSample.material = 2;
+    pixelSample.Kd       = Kd;
+    pixelSample.Ks       = Ks;
+    pixelSample.exponent = exponent;
 }   /* -----  end of function handlePixelSamplingRayClosestHit  ----- */
 
 
@@ -159,11 +159,14 @@ RT_PROGRAM void handlePhotonShootingRayClosestHit()
     payload.sampleIndexBase += 2;
 
     // Tweak sample according to cosine term.
-    float3 newDirection = sampleHemisphereUniformly(sample);
-    newDirection = newDirection.x*U + newDirection.y*V + newDirection.z*W;
-    float3 half = normalize(newDirection - direction);
-    float3 glossy = (invRoughness + 2.0f) / (2.0f * M_PIf) *
-        powf(dot(half, ffnormal), invRoughness) * pairwiseMul(Ks, payload.flux);
+    float cosTheta = powf(sample.x, 1.0f / (exponent + 1.0f));
+    float sinTheta = sqrtf(max(0.0f, 1.0f - cosTheta*cosTheta));
+    float phi = sample.y * 2.0f * M_PIf;
+    float3 half = make_float3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
+    half = half.x*U + half.y*V + half.z*W;
+    float3 newDirection = direction + 2.0f * dot(-direction, half) * half;
+    float3 glossy = (exponent + 2.0f) / (2.0f * M_PIf) *
+        powf(dot(half, ffnormal), exponent) * pairwiseMul(Ks, payload.flux);
 
     Ray ray(hitPoint, newDirection, PhotonShootingRay, rayEpsilon);
     payload.depth += 1;

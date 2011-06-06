@@ -99,7 +99,7 @@ typedef struct PixelSample {
     int             material;
     optix::float3   Kd;
     optix::float3   Ks;
-    float           invRoughness;
+    float           exponent;
     optix::uint     nPhotons;
     float           radiusSquared;
 } PixelSample ; /* ----------  end of struct PixelSample  ---------- */

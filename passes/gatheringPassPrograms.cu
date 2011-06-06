@@ -111,8 +111,8 @@ RT_PROGRAM void generateRay()
         else if (pixelSample.material == 2) {
             float3 half = normalize(normalize(direction) + pixelSample.incidentDirection);
             attenuation = pixelSample.Kd +
-                (pixelSample.invRoughness + 2.0f) / (2.0f * M_PIf) *
-                powf(dot(half, pixelSample.normal), pixelSample.invRoughness) * pixelSample.Ks;
+                (pixelSample.exponent + 2.0f) / (2.0f * M_PIf) *
+                powf(dot(half, pixelSample.normal), pixelSample.exponent) * pixelSample.Ks;
         }
 
         direct = payload.attenuation * pairwiseMul(light.flux, attenuation) *
@@ -143,8 +143,8 @@ RT_PROGRAM void generateRay()
                     else if (pixelSample.material == 2) {
                         float3 half = normalize(pixelSample.incidentDirection + photon.incidentDirection);
                         attenuation = pixelSample.Kd +
-                            (pixelSample.invRoughness + 2.0f) / (2.0f * M_PIf) *
-                            powf(dot(half, pixelSample.normal), pixelSample.invRoughness) * pixelSample.Ks;
+                            (pixelSample.exponent + 2.0f) / (2.0f * M_PIf) *
+                            powf(dot(half, pixelSample.normal), pixelSample.exponent) * pixelSample.Ks;
                     }
 
                     flux += pairwiseMul(attenuation, photon.flux) *

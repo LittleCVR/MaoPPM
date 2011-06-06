@@ -235,7 +235,7 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
                     static_cast<float *>(Ks->data)[0],
                     static_cast<float *>(Ks->data)[1],
                     static_cast<float *>(Ks->data)[2]));
-        material["invRoughness"]->setFloat(1.0f / static_cast<float *>(roughness->data)[0]);
+        material["exponent"]->setFloat(1.0f / static_cast<float *>(roughness->data)[0]);
         material->setClosestHitProgram(PixelSamplingRay,
                 m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
         material->setClosestHitProgram(PhotonShootingRay,
