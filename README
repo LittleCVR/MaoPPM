@@ -1,0 +1,32 @@
+================================================================================
+Build the Project
+================================================================================
+
+In order to build the project, you will need nVIDIA's OptiX. Install OptiX
+first if you don't have it. Then put the project's root directory into OptiX's
+SDK directory, e.g.
+    
+    PathToOptiX/SDK/MaoPPM
+    
+and add the project to OptiX SDK's CMakeList.txt, e.g.
+
+    add_subdirectory(MaoPPM)
+
+After that, you have to generate the parser yourself. cd to the project's root
+directory and type the following commands:
+
+    $ bison -d -v -t -o parsers/parser.cc parsers/parser.y
+    $ flex -o parsers/scanner.cc parsers/scanner.l
+
+Now you can use cmake to generate the Makefile and build the project.
+
+
+
+================================================================================
+Run the Program
+================================================================================
+
+The program takes stdin as input, so use the following syntax to run the
+program:
+
+    $ ./MaoPPM < scene.pbrt
