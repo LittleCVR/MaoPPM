@@ -202,7 +202,7 @@ void SceneBuilder::lightSource(const char * type, ParameterVector * parameterVec
 
 void SceneBuilder::material(const char * type, ParameterVector * parameterVector)
 {
-    Material material = m_scene->getContext()->createMaterial();
+    optix::Material material = m_scene->getContext()->createMaterial();
     if (strcmp(type, "matte") == 0) {
         ParameterVector * colorVector = findByTypeAndName("color", "Kd", *parameterVector);
         if (colorVector == NULL) {

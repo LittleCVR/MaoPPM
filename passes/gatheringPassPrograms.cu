@@ -106,9 +106,9 @@ RT_PROGRAM void generateRay()
         rtTrace(rootObject, ray, payload);
 
         float3 attenuation = make_float3(0.0f);
-        if (pixelSample.material == 1)
+        if (pixelSample.material == MaoPPM::MatteMaterial)
             attenuation = pixelSample.Kd;
-        else if (pixelSample.material == 2) {
+        else if (pixelSample.material == MaoPPM::PlasticMaterial) {
             float3 half = normalize(normalize(direction) + pixelSample.incidentDirection);
             attenuation = pixelSample.Kd +
                 (pixelSample.exponent + 2.0f) / (2.0f * M_PIf) *
@@ -138,9 +138,9 @@ RT_PROGRAM void generateRay()
                 float distanceSquared = dot(diff, diff);
                 if (distanceSquared < pixelSample.radiusSquared) {
                     float3 attenuation = make_float3(1.0f);
-                    if (pixelSample.material == 1)
+                    if (pixelSample.material == MaoPPM::MatteMaterial)
                         attenuation = pixelSample.Kd;
-                    else if (pixelSample.material == 2) {
+                    else if (pixelSample.material == MaoPPM::PlasticMaterial) {
                         float3 half = normalize(pixelSample.incidentDirection + photon.incidentDirection);
                         attenuation = pixelSample.Kd +
                             (pixelSample.exponent + 2.0f) / (2.0f * M_PIf) *

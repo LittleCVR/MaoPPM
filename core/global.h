@@ -83,6 +83,13 @@ enum RayType {
 
 
 
+enum Material {
+    MatteMaterial,
+    PlasticMaterial
+};
+
+
+
 typedef struct Light {
     optix::float3   position;
     optix::float3   flux;

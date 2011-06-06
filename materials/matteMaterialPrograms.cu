@@ -106,7 +106,7 @@ RT_PROGRAM void handlePixelSamplingRayClosestHit()
     pixelSample.incidentDirection  = -direction;
     pixelSample.normal             = ffnormal;
 
-    pixelSample.material  = 1;
+    pixelSample.material  = MaoPPM::MatteMaterial;
     pixelSample.Kd        = Kd;
 }   /* -----  end of function handlePixelSamplingRayClosestHit  ----- */
 
