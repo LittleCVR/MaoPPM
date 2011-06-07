@@ -77,7 +77,7 @@ class SceneBuilder
         /* ====================  MUTATORS      ======================================= */
 
         /* ====================  OPERATORS     ======================================= */
-        void parse(Scene * scene, Scene::InitialCameraData * cameraData);
+        void parse(Scene * scene);
 
         void lookAt(float eyeX, float eyeY, float eyeZ,
                 float atX, float atY, float atZ,
@@ -121,8 +121,7 @@ class SceneBuilder
 
     private:    // members
         /* ====================  DATA MEMBERS  ======================================= */
-        Scene *                     m_scene;
-        Scene::InitialCameraData *  m_cameraData;
+        Scene *             m_scene;
 
         std::stack<State>   m_stateStack;
         State               m_currentState;

@@ -9,11 +9,13 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/ParameterVector.h
 	core/Scene.h
     core/SceneBuilder.h
+    core/System.h
     # source files
     core/global.cpp
     core/main.cpp
 	core/Scene.cpp
     core/SceneBuilder.cpp
+    core/System.cpp
     parsers/pbrtParser.cc
     parsers/pbrtScanner.cc
     # CUDA source files

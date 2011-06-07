@@ -16,12 +16,6 @@
  * =====================================================================================
  */
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 /*-----------------------------------------------------------------------------
  *  header files from std C/C++
  *-----------------------------------------------------------------------------*/
@@ -38,27 +32,13 @@
 #include    "SceneBuilder.h"
 
 /*-----------------------------------------------------------------------------
- *  namespace
+ *  using namespaces
  *-----------------------------------------------------------------------------*/
 using namespace std;
 using namespace optix;
 using namespace MaoPPM;
 
 
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
 
 Scene::Scene() : SampleScene(),
     m_width(INITIAL_WIDTH), m_height(INITIAL_HEIGHT)
@@ -197,9 +177,10 @@ void Scene::initScene(InitialCameraData & cameraData)
     m_sampleList->setSize(0);
     getContext()["sampleList"]->set(m_sampleList);
 
-    // build scene world
+    // Set camera data.
     SceneBuilder sceneBuilder;
-    sceneBuilder.parse(this, &cameraData);
+    sceneBuilder.parse(this);
+    cameraData = m_initialCameraData;
 }   /* -----  end of method Scene::initScene  ----- */
 
 

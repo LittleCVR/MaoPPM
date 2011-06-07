@@ -16,9 +16,6 @@
  * =====================================================================================
  */
 
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 #include    "SceneBuilder.h"
 
 /*-----------------------------------------------------------------------------
@@ -36,23 +33,9 @@ using namespace MaoPPM;
 
 
 
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
 extern int pbrtparse();
 
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
+
 
 SceneBuilder::SceneBuilder()
 {
@@ -68,19 +51,15 @@ SceneBuilder::~SceneBuilder()
 
 
 
-void SceneBuilder::parse(Scene * scene, Scene::InitialCameraData * cameraData)
+void SceneBuilder::parse(Scene * scene)
 {
     m_scene = scene;
-    m_cameraData = cameraData;
-
     extern SceneBuilder * g_sceneBuilder;
     g_sceneBuilder = this;
 
     extern FILE * pbrtin;
     pbrtin = stdin;
     pbrtparse();
-
-    g_sceneBuilder = NULL;
 }
 
 
@@ -89,10 +68,10 @@ void SceneBuilder::lookAt(float eyeX, float eyeY, float eyeZ,
         float atX, float atY, float atZ,
         float upX, float upY, float upZ)
 {
-    m_cameraData->eye    = make_float3(eyeX, eyeY, eyeZ);
-    m_cameraData->lookat = make_float3( atX,  atY,  atZ);
-    m_cameraData->up     = make_float3( upX,  upY,  upZ);
-    m_cameraData->vfov   = 60.0;
+    m_scene->m_initialCameraData.eye    = make_float3(eyeX, eyeY, eyeZ);
+    m_scene->m_initialCameraData.lookat = make_float3( atX,  atY,  atZ);
+    m_scene->m_initialCameraData.up     = make_float3( upX,  upY,  upZ);
+    m_scene->m_initialCameraData.vfov   = 60.0;
 }
 
 

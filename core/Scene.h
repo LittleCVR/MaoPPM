@@ -19,12 +19,6 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 /*-----------------------------------------------------------------------------
  *  header files from OptiX
  *-----------------------------------------------------------------------------*/
@@ -42,16 +36,7 @@
 
 
 
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-
-
-
-
 namespace MaoPPM {
-
 /*
  * =====================================================================================
  *        Class:  Scene
@@ -103,6 +88,8 @@ class Scene : public SampleScene {
         void generateSamples(const optix::uint nSamples, optix::Buffer & sampleList);
 
     private:    // attributes
+        InitialCameraData       m_initialCameraData;
+
         unsigned int            m_width;                /* screen width */
         unsigned int            m_height;               /* screen height */
         optix::Buffer           m_outputBuffer;         /* pixel buffer */
@@ -117,11 +104,8 @@ class Scene : public SampleScene {
         optix::Buffer           m_lightList;
         optix::Buffer           m_sampleList;   /* random numbers */
 };  /* -----  end of class Scene  ----- */
-
-}   /* -----  end of namespace MaoPPM */
-
+}   /* -----  end of namespace MaoPPM  ----- */
 
 
 
-
-#endif  /* ----- #ifndef SCENE_H  ----- */
+#endif  /* -----  #ifndef SCENE_H  ----- */
