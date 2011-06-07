@@ -14,8 +14,8 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/main.cpp
 	core/Scene.cpp
     core/SceneBuilder.cpp
-    parsers/parser.cc
-    parsers/scanner.cc
+    parsers/pbrtParser.cc
+    parsers/pbrtScanner.cc
     # CUDA source files
     core/samplers.cu
     core/math.cu

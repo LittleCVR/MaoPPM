@@ -11,7 +11,7 @@
  *  from bison
  *-----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "parser.hh"
+#include    "pbrtParser.hh"
 
 /*-----------------------------------------------------------------------------
  *  Code to handle the string input.
@@ -112,7 +112,7 @@ IDENTITY        [a-zA-Z_][a-zA-Z_0-9]*
 "]"                     { return RIGHT_BRACKET; }
 
 {REAL_NUMBER}   {
-    yylval.realNumber = static_cast<float>(atof(yytext));
+    pbrtlval.realNumber = static_cast<float>(atof(yytext));
     return REAL_NUMBER;
 }
 
@@ -159,9 +159,9 @@ static void append(char c)
     /* :TODO:2011-04-30 20:53:30:: hard coding 1024 chars for now */
     if (stringPosition >= 1024)
         MaoPPM::fatal("The scene file cannot contains string longer than 1024 characters!");
-    yylval.string[stringPosition] = c;
+    pbrtlval.string[stringPosition] = c;
     ++stringPosition;
-    yylval.string[stringPosition] = '\0';
+    pbrtlval.string[stringPosition] = '\0';
 }
 
 

@@ -50,7 +50,7 @@ using namespace MaoPPM;
 
 /* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
 
-extern int yyparse();
+extern int pbrtparse();
 
 /* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
 
@@ -76,9 +76,9 @@ void SceneBuilder::parse(Scene * scene, Scene::InitialCameraData * cameraData)
     extern SceneBuilder * g_sceneBuilder;
     g_sceneBuilder = this;
 
-    extern FILE * yyin;
-    yyin = stdin;
-    yyparse();
+    extern FILE * pbrtin;
+    pbrtin = stdin;
+    pbrtparse();
 
     g_sceneBuilder = NULL;
 }
