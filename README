@@ -15,8 +15,8 @@ and add the project to OptiX SDK's CMakeList.txt, e.g.
 After that, you have to generate the parser yourself. cd to the project's root
 directory and type the following commands:
 
-    $ bison -d -v -t -o parsers/parser.cc parsers/parser.y
-    $ flex -o parsers/scanner.cc parsers/scanner.l
+    $ bison -d -v -t -p pbrt -o parsers/pbrtParser.cc parsers/pbrtParser.y
+    $ flex -P pbrt -o parsers/pbrtScanner.cc parsers/pbrtScanner.l
 
 Now you can use cmake to generate the Makefile and build the project.
 
