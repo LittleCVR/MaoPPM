@@ -64,20 +64,29 @@
 namespace MaoPPM {
 
 enum Pass {
+    // For path tracing.
+    PathTracingPass,
+    // For PPM & MaoPPM.
     PixelSamplingPass,
     ImportonShootingPass,
     PhotonShootingPass,
     GatheringPass,
+    // Count.
     nPasses
 };  /* ----------  end of enum Pass  ---------- */
 
 
 
 enum RayType {
+    // For path tracing.
+    RadianceRay,
+    ShadowRay,
+    // For PPM & MaoPPm.
     PixelSamplingRay,
     ImportonShootingRay,
     PhotonShootingRay,
     GatheringRay,
+    // Count.
     nRayTypes
 };  /* ----------  end of enum RayType  ---------- */
 
@@ -159,6 +168,7 @@ typedef struct Photon {
 
 
 
+class Renderer;
 class Scene;
 class SceneBuilder;
 

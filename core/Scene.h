@@ -44,65 +44,30 @@ namespace MaoPPM {
  * =====================================================================================
  */
 class Scene : public SampleScene {
+    friend class Renderer;
+    friend class PPMRenderer;
     friend class SceneBuilder;
 
     public:
-        /* ====================  LIFECYCLE     ======================================= */
         Scene();
         ~Scene();
 
-        /* ====================  ACCESSORS     ======================================= */
-        optix::Buffer getOutputBuffer() { return m_outputBuffer; }
-        inline bool isCameraChanged() const { return _camera_changed; }
+        optix::Buffer       getOutputBuffer();
+        inline bool         isCameraChanged() const { return _camera_changed; }
+        inline void         setIsCameraChanged(bool isCameraChanged) { _camera_changed = isCameraChanged; }
+        inline Renderer *   renderer() const { return m_renderer; }
+        void                setRenderer(Renderer * renderer);
 
-        /* ====================  MUTATORS      ======================================= */
-
-        /* ====================  OPERATORS     ======================================= */
-        void doResize(unsigned int width, unsigned int height);
-        void initScene(InitialCameraData & cameraData);
-        void trace(const RayGenCameraData & cameraData);
-
-    protected:
-        inline void setIsCameraChanged(bool isCameraChanged) { _camera_changed = isCameraChanged; }
-
-#ifdef DEBUG
-    private:    // methods
-        void initDebug();
-#endif
-
-    private:    // methods
-        void initPixelSamplingPassData();
-        void initImportonShootingPassData();
-        void initPhotonShootingPassData();
-        void setPrograms(const std::string & cuFileName,
-                unsigned int entryPointIndex,
-                const std::string & rayGenerationProgramName  = "generateRay",
-                const std::string & missProgramName           = "handleMiss",
-                const std::string & exceptionProgramName      = "handleException");
-
-    private:
-        void createPhotonMap();
-        void buildPhotonMapAcceleration(MaoPPM::Photon * photonList,
-                optix::uint start, optix::uint end, MaoPPM::Photon * photonMap,
-                optix::uint root, optix::float3 bbMin, optix::float3 bbMax);
-        void generateSamples(const optix::uint nSamples, optix::Buffer & sampleList);
+        void                doResize(unsigned int width, unsigned int height);
+        void                initScene(InitialCameraData & cameraData);
+        void                trace(const RayGenCameraData & cameraData);
 
     private:    // attributes
+        Renderer *              m_renderer;
         InitialCameraData       m_initialCameraData;
-
-        unsigned int            m_width;                /* screen width */
-        unsigned int            m_height;               /* screen height */
-        optix::Buffer           m_outputBuffer;         /* pixel buffer */
-
-        optix::Buffer           m_pixelSampleList;
-        optix::Buffer           m_importonMap;
-        optix::uint             m_nEmittedPhotons;
-        optix::Buffer           m_photonList;
-        optix::Buffer           m_photonMap;
-
+        RayGenCameraData        m_rayGenCameraData;
         optix::GeometryGroup    m_rootObject;
         optix::Buffer           m_lightList;
-        optix::Buffer           m_sampleList;   /* random numbers */
 };  /* -----  end of class Scene  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
