@@ -22,6 +22,7 @@
  *  header files from std C/C++
  *-----------------------------------------------------------------------------*/
 #include    <cstdlib>
+#include	<ctime>
 #include    <iostream>
 
 /*-----------------------------------------------------------------------------
@@ -71,7 +72,7 @@ System::~System()
 
 int System::exec()
 {
-    srand(time(NULL));
+    srand(static_cast<unsigned int>(time(NULL)));
     try {
         Scene * scene = new Scene;
         Renderer * renderer = new PPMRenderer(scene);
