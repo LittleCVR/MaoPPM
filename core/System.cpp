@@ -33,6 +33,7 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "PPMRenderer.h"
 #include    "Scene.h"
 #include    "SceneBuilder.h"
 
@@ -70,8 +71,10 @@ System::~System()
 
 int System::exec()
 {
+    srand(time(NULL));
     try {
         Scene * scene = new Scene;
+        Renderer * renderer = new PPMRenderer(scene);
         /* :TODO:2011/3/28 18:00:54:: Try to understand what consequenses this line will cause. */
         GLUTDisplay::setUseSRGB(true);
         GLUTDisplay::setProgressiveDrawingTimeout(m_timeout);
