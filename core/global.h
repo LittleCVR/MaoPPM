@@ -106,6 +106,18 @@ typedef struct Light {
 
 
 
+typedef struct RadianceRayPayload {
+    optix::float3   radiance;
+} RadianceRayPayload ;
+
+
+
+typedef struct ShadowRayPayload {
+    float           attenuation;
+} ShadowRayPayload ;
+
+
+
 typedef struct PixelSample {
     optix::uint     flags;
     optix::float3   position;

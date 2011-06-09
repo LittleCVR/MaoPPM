@@ -137,13 +137,11 @@ void Renderer::resize(unsigned int width, unsigned int height)
 
 
 
-void Renderer::setPrograms(const std::string & cuFileName,
+void Renderer::setEntryPointPrograms(const std::string & cuFileName,
         unsigned int entryPointIndex,
         const std::string & rayGenerationProgramName,
-        const std::string & missProgramName,
         const std::string & exceptionProgramName)
 {
-    // create pixel sampling programs
     std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
 
     Program rayGenerationProgram = getContext()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
@@ -151,10 +149,19 @@ void Renderer::setPrograms(const std::string & cuFileName,
 
     Program exceptionProgram = getContext()->createProgramFromPTXFile(ptxPath, exceptionProgramName);
     getContext()->setExceptionProgram(entryPointIndex, exceptionProgram);
+}   /* -----  end of method Renderer::setEntryPointPrograms  ----- */
+
+
+
+void Renderer::setMissProgram(const std::string & cuFileName,
+        unsigned int rayType,
+        const std::string & missProgramName)
+{
+    std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
 
     Program missProgram = getContext()->createProgramFromPTXFile(ptxPath, missProgramName);
-    getContext()->setMissProgram(entryPointIndex, missProgram);
-}   /* -----  end of method enderer::setPrograms  ----- */
+    getContext()->setMissProgram(rayType, missProgram);
+}   /* -----  end of method Renderer::setMissProgram */
 
 
 

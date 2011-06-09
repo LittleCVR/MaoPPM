@@ -1,5 +1,5 @@
 /*
- * =====================================================================================
+ * =============================================================================
  *
  *       Filename:  PPMRenderer.cpp
  *
@@ -13,29 +13,29 @@
  *                  Department of Computer Science & Information Engineering,
  *                  National Taiwan University
  *
- * =====================================================================================
+ * =============================================================================
  */
 
 #include    "PPMRenderer.h"
 
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  header files from std C/C++
- *-----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 #include    <algorithm>
 #include    <cstdio>
 #include    <ctime>
 #include    <iostream>
 #include    <limits>
 
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  header files of our own
- *-----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 #include    "Scene.h"
 #include    "SceneBuilder.h"
 
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  using namespaces
- *-----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 using namespace std;
 using namespace optix;
 using namespace MaoPPM;
@@ -170,8 +170,9 @@ void PPMRenderer::init()
     initPixelSamplingPassData();
     initImportonShootingPassData();
     initPhotonShootingPassData();
-    setPrograms("gatheringPassPrograms.cu", GatheringPass);
-}   /* -----  end of method PPMRenderer::initPPMRenderer  ----- */
+    setEntryPointPrograms("gatheringPassPrograms.cu", GatheringPass);
+    setMissProgram("gatheringPassPrograms.cu", GatheringRay, "handleGatheringRayMiss");
+}   /* -----  end of method PPMRenderer::init  ----- */
 
 
 
@@ -200,7 +201,8 @@ void PPMRenderer::initPhotonShootingPassData()
     getContext()["photonMap"]->set(m_photonMap);
 
     // create photon shooting programs
-    setPrograms("photonShootingPassPrograms.cu", PhotonShootingPass);
+    setEntryPointPrograms("photonShootingPassPrograms.cu", PhotonShootingPass);
+    setMissProgram("photonShootingPassPrograms.cu", PhotonShootingRay, "handlePhotonShootingRayMiss");
 }   /* -----  end of method PPMRenderer::initPhotonShootingPassData  ----- */
 
 
@@ -215,7 +217,8 @@ void PPMRenderer::initPixelSamplingPassData()
     getContext()["pixelSampleList"]->set(m_pixelSampleList);
 
     // create pixel sampling programs
-    setPrograms("pixelSamplingPassPrograms.cu", PixelSamplingPass);
+    setEntryPointPrograms("pixelSamplingPassPrograms.cu", PixelSamplingPass);
+    setMissProgram("pixelSamplingPassPrograms.cu", PixelSamplingRay, "handlePixelSamplingRayMiss");
 }   /* -----  end of method PPMRenderer::initPixelSamplingPassData  ----- */
 
 

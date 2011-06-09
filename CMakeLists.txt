@@ -8,30 +8,33 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/global.h
     core/ParameterVector.h
     core/Renderer.h
-	core/Scene.h
+    core/Scene.h
     core/SceneBuilder.h
     core/System.h
+    renderers/PathTracingRenderer.h
     renderers/PPMRenderer.h
     # source files
     core/global.cpp
     core/main.cpp
     core/Renderer.cpp
-	core/Scene.cpp
+    core/Scene.cpp
     core/SceneBuilder.cpp
     core/System.cpp
     parsers/pbrtParser.cc
     parsers/pbrtScanner.cc
+    renderers/PathTracingRenderer.cpp
     renderers/PPMRenderer.cpp
     # CUDA source files
     core/samplers.cu
     core/math.cu
-	materials/matteMaterialPrograms.cu
-	materials/plasticMaterialPrograms.cu
-	passes/pixelSamplingPassPrograms.cu
-	passes/importonShootingPassPrograms.cu
-	passes/photonShootingPassPrograms.cu
-	passes/gatheringPassPrograms.cu
-	shapes/triangleMeshShapePrograms.cu
+    materials/matteMaterialPrograms.cu
+    materials/plasticMaterialPrograms.cu
+    passes/pathTracingPassPrograms.cu
+    passes/pixelSamplingPassPrograms.cu
+    passes/importonShootingPassPrograms.cu
+    passes/photonShootingPassPrograms.cu
+    passes/gatheringPassPrograms.cu
+    shapes/triangleMeshShapePrograms.cu
     )
 else()
   # GLUT or OpenGL not found

@@ -33,6 +33,7 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "PathTracingRenderer.h"
 #include    "PPMRenderer.h"
 #include    "Scene.h"
 #include    "SceneBuilder.h"
@@ -72,9 +73,10 @@ System::~System()
 int System::exec()
 {
     srand(time(NULL));
+
+    Scene * scene = new Scene;
+    Renderer * renderer = new PathTracingRenderer(scene);
     try {
-        Scene * scene = new Scene;
-        Renderer * renderer = new PPMRenderer(scene);
         /* :TODO:2011/3/28 18:00:54:: Try to understand what consequenses this line will cause. */
         GLUTDisplay::setUseSRGB(true);
         GLUTDisplay::setProgressiveDrawingTimeout(m_timeout);
@@ -83,6 +85,9 @@ int System::exec()
         sutilReportError(e.getErrorString().c_str());
         exit(EXIT_FAILURE);
     }
+    delete scene;
+    delete renderer;
+
     return EXIT_SUCCESS;
 }   /* -----  end of method System::exec  ----- */
 
