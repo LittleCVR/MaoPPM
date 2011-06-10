@@ -48,7 +48,7 @@ Scene::~Scene()
 
 Buffer Scene::getOutputBuffer()
 {
-    return m_renderer->getOutputBuffer();
+    return m_renderer->outputBuffer();
 }   /* -----  end of method Scene::getOutputBuffer  ----- */
 
 
@@ -75,6 +75,7 @@ void Scene::initScene(InitialCameraData & cameraData)
 {
     getContext()->setRayTypeCount(nRayTypes);
     getContext()->setEntryPointCount(nPasses);
+    getContext()["rayEpsilon"]->setFloat(RAY_EPSILON);
 
     // Initialize root object.
     m_rootObject = getContext()->createGeometryGroup();
@@ -89,13 +90,13 @@ void Scene::initScene(InitialCameraData & cameraData)
     m_lightList->setSize(0);
     getContext()["lightList"]->set(m_lightList);
 
+    // Initialize renderer.
+    m_renderer->init();
+
     // Set camera data.
     SceneBuilder sceneBuilder;
     sceneBuilder.parse(this);
     cameraData = m_initialCameraData;
-
-    // Initialize renderer.
-    m_renderer->init();
 }   /* -----  end of method Scene::initScene  ----- */
 
 

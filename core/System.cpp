@@ -77,6 +77,7 @@ int System::exec()
 
     Scene * scene = new Scene;
     Renderer * renderer = new PathTracingRenderer(scene);
+    cerr << renderer::materialInformation() << endl;
     try {
         /* :TODO:2011/3/28 18:00:54:: Try to understand what consequenses this line will cause. */
         GLUTDisplay::setUseSRGB(true);

@@ -59,17 +59,16 @@ void Renderer::init()
     initDebug();
 #endif
 
-    getContext()->setStackSize(STACK_SIZE);
-    getContext()["rayEpsilon"]->setFloat(RAY_EPSILON);
+    context()->setStackSize(STACK_SIZE);
 
     // create output buffer
     m_outputBuffer = m_scene->createOutputBuffer(RT_FORMAT_FLOAT4, m_width, m_height);
-    getContext()["outputBuffer"]->set(m_outputBuffer);
+    context()["outputBuffer"]->set(m_outputBuffer);
 
     // initialize sample buffer
-    m_sampleList = getContext()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT);
+    m_sampleList = context()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT);
     m_sampleList->setSize(0);
-    getContext()["sampleList"]->set(m_sampleList);
+    context()["sampleList"]->set(m_sampleList);
 }   /* -----  end of method PPMRenderer::initPPMRenderer  ----- */
 
 
@@ -87,14 +86,14 @@ void Renderer::initDebug()
             sizeof(computeCapability),
             reinterpret_cast<void *>(&computeCapability));
     if (rc != RT_SUCCESS)
-        throw Exception::makeException(rc, getContext()->get());
+        throw Exception::makeException(rc, context()->get());
 
     cerr << "Compute capability is SM" << computeCapability.x << computeCapability.y << ", ";
     if (computeCapability.x < 1 || computeCapability.y < 1)
         cerr << "debug mode cannot be enabled." << endl;
     else {
         cerr << "debug mode enabled." << endl;
-        getContext()->setPrintEnabled(true);
+        context()->setPrintEnabled(true);
     }
 }   /* -----  end of method Renderer::initDebug  ----- */
 #endif
@@ -122,10 +121,10 @@ void Renderer::generateSamples(const uint nSamples)
 
 
 
-Context Renderer::getContext()
+Context Renderer::context()
 {
     return m_scene->getContext();
-}   /* -----  enf of method Renderer::getContext  ----- */
+}   /* -----  enf of method Renderer::context  ----- */
 
 
 
@@ -144,11 +143,11 @@ void Renderer::setEntryPointPrograms(const std::string & cuFileName,
 {
     std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
 
-    Program rayGenerationProgram = getContext()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
-    getContext()->setRayGenerationProgram(entryPointIndex, rayGenerationProgram);
+    Program rayGenerationProgram = context()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
+    context()->setRayGenerationProgram(entryPointIndex, rayGenerationProgram);
 
-    Program exceptionProgram = getContext()->createProgramFromPTXFile(ptxPath, exceptionProgramName);
-    getContext()->setExceptionProgram(entryPointIndex, exceptionProgram);
+    Program exceptionProgram = context()->createProgramFromPTXFile(ptxPath, exceptionProgramName);
+    context()->setExceptionProgram(entryPointIndex, exceptionProgram);
 }   /* -----  end of method Renderer::setEntryPointPrograms  ----- */
 
 
@@ -159,8 +158,8 @@ void Renderer::setMissProgram(const std::string & cuFileName,
 {
     std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
 
-    Program missProgram = getContext()->createProgramFromPTXFile(ptxPath, missProgramName);
-    getContext()->setMissProgram(rayType, missProgram);
+    Program missProgram = context()->createProgramFromPTXFile(ptxPath, missProgramName);
+    context()->setMissProgram(rayType, missProgram);
 }   /* -----  end of method Renderer::setMissProgram */
 
 
