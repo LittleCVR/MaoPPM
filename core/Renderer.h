@@ -64,11 +64,13 @@ class Renderer {
         optix::Buffer           sampleList() const { return m_sampleList; }
         void                    generateSamples(const optix::uint nSamples);
 
-        void setPrograms(const std::string & cuFileName,
+        void setEntryPointPrograms(const std::string & cuFileName,
                 unsigned int entryPointIndex,
                 const std::string & rayGenerationProgramName  = "generateRay",
-                const std::string & missProgramName           = "handleMiss",
                 const std::string & exceptionProgramName      = "handleException");
+        void setMissProgram(const std::string & cuFileName,
+                unsigned int rayType,
+                const std::string & missProgramName);
 
     private:    // attributes
         Scene *                 m_scene;
