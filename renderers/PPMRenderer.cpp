@@ -164,7 +164,7 @@ void PPMRenderer::init()
 {
     Renderer::init();
 
-    getContext()["nEmittedPhotons"]->setUint(0u);
+    context()["nEmittedPhotons"]->setUint(0u);
 
     // init pixel sampling data, importon shooting data, and photon shooting data
     initPixelSamplingPassData();
@@ -187,18 +187,18 @@ void PPMRenderer::initPhotonShootingPassData()
     uint size = PHOTON_WIDTH * PHOTON_HEIGHT * PHOTON_COUNT;
 
     // create photon buffer
-    m_photonList = getContext()->createBuffer(RT_BUFFER_OUTPUT);
+    m_photonList = context()->createBuffer(RT_BUFFER_OUTPUT);
     m_photonList->setFormat(RT_FORMAT_USER);
     m_photonList->setElementSize(sizeof(Photon));
     m_photonList->setSize(size);
-    getContext()["photonList"]->set(m_photonList);
+    context()["photonList"]->set(m_photonList);
 
     // create photon acceleration buffer
-    m_photonMap = getContext()->createBuffer(RT_BUFFER_INPUT);
+    m_photonMap = context()->createBuffer(RT_BUFFER_INPUT);
     m_photonMap->setFormat(RT_FORMAT_USER);
     m_photonMap->setElementSize(sizeof(Photon));
     m_photonMap->setSize(size);
-    getContext()["photonMap"]->set(m_photonMap);
+    context()["photonMap"]->set(m_photonMap);
 
     // create photon shooting programs
     setEntryPointPrograms("photonShootingPassPrograms.cu", PhotonShootingPass);
@@ -210,11 +210,11 @@ void PPMRenderer::initPhotonShootingPassData()
 void PPMRenderer::initPixelSamplingPassData()
 {
     // create pixel sample buffer
-    m_pixelSampleList = getContext()->createBuffer(RT_BUFFER_OUTPUT);
+    m_pixelSampleList = context()->createBuffer(RT_BUFFER_OUTPUT);
     m_pixelSampleList->setFormat(RT_FORMAT_USER);
     m_pixelSampleList->setElementSize(sizeof(PixelSample));
     m_pixelSampleList->setSize(width(), height());
-    getContext()["pixelSampleList"]->set(m_pixelSampleList);
+    context()["pixelSampleList"]->set(m_pixelSampleList);
 
     // create pixel sampling programs
     setEntryPointPrograms("pixelSamplingPassPrograms.cu", PixelSamplingPass);
@@ -232,22 +232,22 @@ void PPMRenderer::render()
     if (scene()->isCameraChanged()) {
         m_nEmittedPhotons = 0u;
         scene()->setIsCameraChanged(false);
-        getContext()["cameraPosition"]->setFloat(cameraData.eye);
-        getContext()["cameraU"]->setFloat(cameraData.U);
-        getContext()["cameraV"]->setFloat(cameraData.V);
-        getContext()["cameraW"]->setFloat(cameraData.W);
-        getContext()["launchSize"]->setUint(width(), height());
-        getContext()->launch(PixelSamplingPass, width(), height());
+        context()["cameraPosition"]->setFloat(cameraData.eye);
+        context()["cameraU"]->setFloat(cameraData.U);
+        context()["cameraV"]->setFloat(cameraData.V);
+        context()["cameraW"]->setFloat(cameraData.W);
+        context()["launchSize"]->setUint(width(), height());
+        context()->launch(PixelSamplingPass, width(), height());
     }
 
     generateSamples(PHOTON_WIDTH * PHOTON_HEIGHT * PHOTON_COUNT * 2);
-    getContext()["launchSize"]->setUint(PHOTON_WIDTH, PHOTON_HEIGHT);
-    getContext()->launch(PhotonShootingPass, PHOTON_WIDTH, PHOTON_HEIGHT);
+    context()["launchSize"]->setUint(PHOTON_WIDTH, PHOTON_HEIGHT);
+    context()->launch(PhotonShootingPass, PHOTON_WIDTH, PHOTON_HEIGHT);
     createPhotonMap();
 
-    getContext()["launchSize"]->setUint(width(), height());
-    getContext()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
-    getContext()->launch(GatheringPass, width(), height());
+    context()["launchSize"]->setUint(width(), height());
+    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    context()->launch(GatheringPass, width(), height());
 }   /* -----  end of method PPMRenderer::render  ----- */
 
 

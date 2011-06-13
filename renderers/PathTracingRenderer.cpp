@@ -72,12 +72,12 @@ void PathTracingRenderer::render()
 
     if (scene()->isCameraChanged()) {
         scene()->setIsCameraChanged(false);
-        getContext()["cameraPosition"]->setFloat(cameraData.eye);
-        getContext()["cameraU"]->setFloat(cameraData.U);
-        getContext()["cameraV"]->setFloat(cameraData.V);
-        getContext()["cameraW"]->setFloat(cameraData.W);
+        context()["cameraPosition"]->setFloat(cameraData.eye);
+        context()["cameraU"]->setFloat(cameraData.U);
+        context()["cameraV"]->setFloat(cameraData.V);
+        context()["cameraW"]->setFloat(cameraData.W);
     }
 
-    getContext()["launchSize"]->setUint(width(), height());
-    getContext()->launch(PathTracingPass, width(), height());
+    context()["launchSize"]->setUint(width(), height());
+    context()->launch(PathTracingPass, width(), height());
 }   /* -----  end of method PathTracingRenderer::render  ----- */

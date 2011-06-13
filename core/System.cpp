@@ -76,7 +76,7 @@ int System::exec()
     srand(static_cast<unsigned int>(time(NULL)));
 
     Scene * scene = new Scene;
-    Renderer * renderer = new PathTracingRenderer(scene);
+    Renderer * renderer = new PPMRenderer(scene);
     try {
         /* :TODO:2011/3/28 18:00:54:: Try to understand what consequenses this line will cause. */
         GLUTDisplay::setUseSRGB(true);
