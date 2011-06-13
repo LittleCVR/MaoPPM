@@ -41,13 +41,16 @@ namespace MaoPPM {
  */
 class PPMRenderer : public Renderer {
     public:     // methods
-        PPMRenderer(Scene * scene);
+        PPMRenderer(Scene * scene = NULL);
         ~PPMRenderer();
 
     public:     // methods
         void    init();
-        void    render();
+        void    render(const Scene::RayGenCameraData & cameraData);
         void    resize(unsigned int width, unsigned int height);
+
+        void setMaterialPrograms(const std::string & name,
+                optix::Material & material);
 
     private:    // methods
         void    initPixelSamplingPassData();

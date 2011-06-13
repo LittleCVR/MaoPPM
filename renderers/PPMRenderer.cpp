@@ -223,11 +223,8 @@ void PPMRenderer::initPixelSamplingPassData()
 
 
 
-void PPMRenderer::render()
+void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
-    // For convenience.
-    Scene::RayGenCameraData & cameraData = scene()->m_rayGenCameraData;
-
     // re-run the pixel sampling pass if camera has changed
     if (scene()->isCameraChanged()) {
         m_nEmittedPhotons = 0u;
@@ -258,3 +255,21 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
     Renderer::resize(width, height);
     m_pixelSampleList->setSize(width, height);
 }   /* -----  end of method PPMRenderer::doResize  ----- */
+
+
+
+void PPMRenderer::setMaterialPrograms(const std::string & name,
+        optix::Material & material)
+{
+    if (name == "matte") {
+        string ptxPath = scene()->ptxpath("MaoPPM", "matteMaterialPPMPrograms.cu");
+        material->setClosestHitProgram(PixelSamplingRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
+        material->setClosestHitProgram(PhotonShootingRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handlePhotonShootingRayClosestHit"));
+        material->setAnyHitProgram(GatheringRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleGatheringRayAnyHit"));
+    }
+    else if (name == "plastic") {
+    }
+}   /* -----  end of method PPMRenderer::setMaterialPrograms  ----- */

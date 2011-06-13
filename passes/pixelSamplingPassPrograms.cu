@@ -106,11 +106,11 @@ RT_PROGRAM void handleException()
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  handleMiss
+ *         Name:  handlePixelSamplingRayMiss
  *  Description:  
  * =============================================================================
  */
-RT_PROGRAM void handleMiss()
+RT_PROGRAM void handlePixelSamplingRayMiss()
 {
     currentRayPayload.attenuation = 0.0f;
-}   /* -----  end of function handleMiss  ----- */
+}   /* -----  end of function handlePixelSamplingMiss  ----- */

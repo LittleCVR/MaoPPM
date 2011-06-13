@@ -64,6 +64,8 @@ void Scene::setRenderer(Renderer * renderer)
 
 
 
+#include <iostream>
+using namespace std;
 void Scene::doResize(unsigned int width, unsigned int height)
 {
     m_renderer->resize(width, height);
@@ -90,13 +92,13 @@ void Scene::initScene(InitialCameraData & cameraData)
     m_lightList->setSize(0);
     getContext()["lightList"]->set(m_lightList);
 
-    // Initialize renderer.
-    m_renderer->init();
-
     // Set camera data.
     SceneBuilder sceneBuilder;
     sceneBuilder.parse(this);
     cameraData = m_initialCameraData;
+
+    // Initialize renderer.
+    m_renderer->init();
 }   /* -----  end of method Scene::initScene  ----- */
 
 
@@ -104,5 +106,5 @@ void Scene::initScene(InitialCameraData & cameraData)
 void Scene::trace(const RayGenCameraData & cameraData)
 {
     m_rayGenCameraData = cameraData;
-    m_renderer->render();
+    m_renderer->render(cameraData);
 }   /* -----  end of method Scene::trace  ----- */

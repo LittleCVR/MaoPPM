@@ -48,7 +48,6 @@
 
 
 
-
 /* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
 
 namespace MaoPPM {

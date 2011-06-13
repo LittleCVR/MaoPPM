@@ -45,8 +45,6 @@ namespace MaoPPM {
  */
 class Scene : public SampleScene {
     friend class Renderer;
-    friend class PathTracingRenderer;
-    friend class PPMRenderer;
     friend class SceneBuilder;
 
     public:

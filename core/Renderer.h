@@ -28,6 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "Scene.h"
 
 
 
@@ -51,8 +52,11 @@ class Renderer {
         void                  setScene(Scene * scene);
 
         virtual void          init();
-        virtual void          render() = 0;
+        virtual void          render(const Scene::RayGenCameraData & cameraData) = 0;
         virtual void          resize(unsigned int width, unsigned int height);
+
+        virtual void setMaterialPrograms(const std::string & name,
+                optix::Material & material) = 0;
 
 #ifdef DEBUG
     private:    // methods

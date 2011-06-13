@@ -41,12 +41,15 @@ namespace MaoPPM {
  */
 class PathTracingRenderer : public Renderer {
     public:     // methods
-        PathTracingRenderer(Scene * scene);
+        PathTracingRenderer(Scene * scene = NULL);
         ~PathTracingRenderer();
 
     public:     // methods
         void    init();
-        void    render();
+        void    render(const Scene::RayGenCameraData & cameraData);
+
+        void setMaterialPrograms(const std::string & name,
+                optix::Material & material);
 };  /* -----  end of class PathTracingRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

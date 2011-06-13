@@ -136,10 +136,10 @@ RT_PROGRAM void handleException()
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  handleMiss
+ *         Name:  handlePhotonShootingRayMiss
  *  Description:  
  * =====================================================================================
  */
-RT_PROGRAM void handleMiss()
+RT_PROGRAM void handlePhotonShootingRayMiss()
 {
-}
+}   /* -----  end of function handlePhotonShootingRayMiss  ----- */

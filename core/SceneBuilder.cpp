@@ -24,6 +24,11 @@
 #include    <cstdio>
 #include    <iostream>
 
+/*----------------------------------------------------------------------------
+ *  header files of our own
+ *----------------------------------------------------------------------------*/
+#include    "Renderer.h"
+
 /*-----------------------------------------------------------------------------
  *  namespace
  *-----------------------------------------------------------------------------*/
@@ -188,28 +193,16 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
             cerr << "Material \"matte\" must contains color Kd." << endl;
             exit(EXIT_FAILURE);
         }
-        string ptxPath = m_scene->ptxpath("MaoPPM", "matteMaterialPrograms.cu");
         material["Kd"]->setFloat(make_float3(
                     static_cast<float *>(colorVector->data)[0],
                     static_cast<float *>(colorVector->data)[1],
                     static_cast<float *>(colorVector->data)[2]));
-        material->setClosestHitProgram(RadianceRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleRadianceRayClosestHit"));
-        material->setAnyHitProgram(ShadowRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
-        material->setClosestHitProgram(PixelSamplingRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
-        material->setClosestHitProgram(PhotonShootingRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePhotonShootingRayClosestHit"));
-        material->setAnyHitProgram(GatheringRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleGatheringRayAnyHit"));
     }
     else if (strcmp(type, "plastic") == 0) {
         ParameterVector * Kd = findByTypeAndName("color", "Kd", *parameterVector);
         ParameterVector * Ks = findByTypeAndName("color", "Ks", *parameterVector);
         ParameterVector * roughness = findByTypeAndName("float", "roughness", *parameterVector);
 
-        string ptxPath = m_scene->ptxpath("MaoPPM", "plasticMaterialPrograms.cu");
         material["Kd"]->setFloat(make_float3(
                     static_cast<float *>(Kd->data)[0],
                     static_cast<float *>(Kd->data)[1],
@@ -219,17 +212,19 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
                     static_cast<float *>(Ks->data)[1],
                     static_cast<float *>(Ks->data)[2]));
         material["exponent"]->setFloat(1.0f / static_cast<float *>(roughness->data)[0]);
-        material->setClosestHitProgram(RadianceRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleRadianceRayClosestHit"));
-        material->setAnyHitProgram(ShadowRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
-        material->setClosestHitProgram(PixelSamplingRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
-        material->setClosestHitProgram(PhotonShootingRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePhotonShootingRayClosestHit"));
-        material->setAnyHitProgram(GatheringRay,
-                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleGatheringRayAnyHit"));
+//        string ptxPath = m_scene->ptxpath("MaoPPM", "plasticMaterialPrograms.cu");
+//        material->setClosestHitProgram(RadianceRay,
+//                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleRadianceRayClosestHit"));
+//        material->setAnyHitProgram(ShadowRay,
+//                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
+//        material->setClosestHitProgram(PixelSamplingRay,
+//                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
+//        material->setClosestHitProgram(PhotonShootingRay,
+//                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handlePhotonShootingRayClosestHit"));
+//        material->setAnyHitProgram(GatheringRay,
+//                m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleGatheringRayAnyHit"));
     }
+    m_scene->m_renderer->setMaterialPrograms(type, material);
     m_currentState.material = material;
 
     // delete

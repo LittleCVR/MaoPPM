@@ -39,7 +39,7 @@ using namespace MaoPPM;
 
 
 Renderer::Renderer(Scene * scene) :
-    m_scene(NULL)
+    m_scene(NULL), m_width(INITIAL_WIDTH), m_height(INITIAL_HEIGHT)
 {
     setScene(scene);
 }   /* -----  end of method Renderer::Renderer  ----- */
@@ -62,7 +62,7 @@ void Renderer::init()
     context()->setStackSize(STACK_SIZE);
 
     // create output buffer
-    m_outputBuffer = m_scene->createOutputBuffer(RT_FORMAT_FLOAT4, m_width, m_height);
+    m_outputBuffer = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, m_width, m_height);
     context()["outputBuffer"]->set(m_outputBuffer);
 
     // initialize sample buffer
@@ -123,7 +123,7 @@ void Renderer::generateSamples(const uint nSamples)
 
 Context Renderer::context()
 {
-    return m_scene->getContext();
+    return scene()->getContext();
 }   /* -----  enf of method Renderer::context  ----- */
 
 
@@ -132,7 +132,7 @@ void Renderer::resize(unsigned int width, unsigned int height)
 {
     m_width = width; m_height = height;
     m_outputBuffer->setSize(m_width, m_height);
-}   /* -----  end of method Renderer::doResize  ----- */
+}   /* -----  end of method Renderer::resize  ----- */
 
 
 
@@ -141,7 +141,7 @@ void Renderer::setEntryPointPrograms(const std::string & cuFileName,
         const std::string & rayGenerationProgramName,
         const std::string & exceptionProgramName)
 {
-    std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
+    std::string ptxPath = scene()->ptxpath("MaoPPM", cuFileName);
 
     Program rayGenerationProgram = context()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
     context()->setRayGenerationProgram(entryPointIndex, rayGenerationProgram);
@@ -156,7 +156,7 @@ void Renderer::setMissProgram(const std::string & cuFileName,
         unsigned int rayType,
         const std::string & missProgramName)
 {
-    std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
+    std::string ptxPath = scene()->ptxpath("MaoPPM", cuFileName);
 
     Program missProgram = context()->createProgramFromPTXFile(ptxPath, missProgramName);
     context()->setMissProgram(rayType, missProgram);

@@ -19,6 +19,11 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+/*----------------------------------------------------------------------------
+ *  header files of our own
+ *----------------------------------------------------------------------------*/
+#include    "global.h"
+
 
 
 namespace MaoPPM {
@@ -59,9 +64,11 @@ class System {
         void    printUsageAndExit(const char * fileName, bool doExit = true);
 
     private:    // members
-        float   m_timeout;  // The program will run for only timeout secs,
-                            // set it to 0 to indicate the program should run
-                            // forever.
+        float       m_timeout;  // The program will run for only timeout secs,
+                                // set it to 0 to indicate the program should run
+                                // forever.
+        Scene *     m_scene;
+        Renderer *  m_renderer;
 };  /* -----  end of class System  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

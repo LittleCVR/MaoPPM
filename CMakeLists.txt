@@ -27,7 +27,8 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     # CUDA source files
     core/samplers.cu
     core/math.cu
-    materials/matteMaterialPrograms.cu
+    materials/matteMaterialPathTracingPrograms.cu
+    materials/matteMaterialPPMPrograms.cu
     materials/plasticMaterialPrograms.cu
     passes/pathTracingPassPrograms.cu
     passes/pixelSamplingPassPrograms.cu

@@ -65,11 +65,8 @@ void PathTracingRenderer::init()
 
 
 
-void PathTracingRenderer::render()
+void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
-    // For convenience.
-    Scene::RayGenCameraData & cameraData = scene()->m_rayGenCameraData;
-
     if (scene()->isCameraChanged()) {
         scene()->setIsCameraChanged(false);
         context()["cameraPosition"]->setFloat(cameraData.eye);
@@ -81,3 +78,19 @@ void PathTracingRenderer::render()
     context()["launchSize"]->setUint(width(), height());
     context()->launch(PathTracingPass, width(), height());
 }   /* -----  end of method PathTracingRenderer::render  ----- */
+
+
+
+void PathTracingRenderer::setMaterialPrograms(const std::string & name,
+        optix::Material & material)
+{
+    if (name == "matte") {
+        string ptxPath = scene()->ptxpath("MaoPPM", "matteMaterialPathTracingPrograms.cu");
+        material->setClosestHitProgram(RadianceRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleRadianceRayClosestHit"));
+        material->setAnyHitProgram(ShadowRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
+    }
+    else if (name == "plastic") {
+    }
+}   /* -----  end of method PathTracingRenderer::setMaterialPrograms  ----- */

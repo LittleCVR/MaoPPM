@@ -211,10 +211,10 @@ RT_PROGRAM void handleException()
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  handleMiss
+ *         Name:  handleGatheringRayMiss
  *  Description:  
  * =====================================================================================
  */
-RT_PROGRAM void handleMiss()
+RT_PROGRAM void handleGatheringRayMiss()
 {
-}   /* -----  end of function handleMiss  ----- */
+}   /* -----  end of function handleGatheringRayMiss  ----- */
