@@ -45,6 +45,8 @@ rtBuffer<float4,        2>      outputBuffer;
 rtDeclareVariable(float,    rayEpsilon, , );
 rtDeclareVariable(rtObject, rootObject, , );
 
+rtDeclareVariable(uint, frameCount, , );
+
 rtDeclareVariable(float3, cameraPosition, , );
 rtDeclareVariable(float3, cameraU       , , );
 rtDeclareVariable(float3, cameraV       , , );
@@ -55,7 +57,9 @@ rtDeclareVariable(float, tHit       , rtIntersectionDistance,            );
 rtDeclareVariable(RadianceRayPayload, radianceRayPayload    , rtPayload, );
 rtDeclareVariable(ShadowRayPayload  , shadowRayPayload      , rtPayload, );
 
-rtDeclareVariable(uint2 ,   launchIndex    ,    rtLaunchIndex, );
+rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
+rtDeclareVariable(uint2, launchSize ,              , );
+
 rtDeclareVariable(float3,   geometricNormal,    attribute geometric_normal, ); 
 rtDeclareVariable(float3,   shadingNormal  ,    attribute shading_normal  , ); 
 
@@ -78,9 +82,16 @@ RT_PROGRAM void generateRay()
 
     Ray ray(cameraPosition, worldRayDirection, RadianceRay, rayEpsilon);
     RadianceRayPayload payload;
+    payload.depth           = 0;
+    payload.radiance        = make_float3(0.0f);
+    payload.sampleIndexBase = 2 * MAX_RAY_DEPTH * ((launchIndex.y * launchSize.x) + launchIndex.x);
     rtTrace(rootObject, ray, payload);
 
-    outputBuffer[launchIndex] = make_float4(payload.radiance, 1.0f);
+    if (frameCount == 0)
+        outputBuffer[launchIndex] = make_float4(0.0f);
+    float frame = static_cast<float>(frameCount);
+    outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * make_float4(payload.radiance, 1.0f) +
+        (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
 }   /* -----  end of function generateRay  ----- */
 
 

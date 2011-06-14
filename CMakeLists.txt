@@ -25,11 +25,10 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     renderers/PathTracingRenderer.cpp
     renderers/PPMRenderer.cpp
     # CUDA source files
-    core/samplers.cu
-    core/math.cu
     materials/matteMaterialPathTracingPrograms.cu
     materials/matteMaterialPPMPrograms.cu
-    materials/plasticMaterialPrograms.cu
+    materials/plasticMaterialPathTracingPrograms.cu
+    materials/plasticMaterialPPMPrograms.cu
     passes/pathTracingPassPrograms.cu
     passes/pixelSamplingPassPrograms.cu
     passes/importonShootingPassPrograms.cu

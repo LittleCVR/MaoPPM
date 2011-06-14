@@ -25,8 +25,8 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "math.cu"
-#include    "samplers.cu"
+#include    "sampler.h"
+#include    "utility.h"
 
 /*----------------------------------------------------------------------------
  *  namespace
@@ -36,9 +36,7 @@ using namespace MaoPPM;
 
 
 
-rtBuffer<PixelSample, 2>  pixelSampleList;
 rtBuffer<float,       1>  sampleList;
-rtBuffer<Light,       1>  lightList;
 
 rtDeclareVariable(float,    rayEpsilon, , );
 rtDeclareVariable(rtObject, rootObject, , );
@@ -46,8 +44,8 @@ rtDeclareVariable(rtObject, rootObject, , );
 rtDeclareVariable(Ray  , currentRay, rtCurrentRay          , );
 rtDeclareVariable(float, tHit      , rtIntersectionDistance, );
 
-rtDeclareVariable(RadianceRayPayload      , radianceRayPayload      , rtPayload, );
-rtDeclareVariable(ShadowRayPayload        , shadowRayPayload        , rtPayload, );
+rtDeclareVariable(RadianceRayPayload, radianceRayPayload, rtPayload, );
+rtDeclareVariable(ShadowRayPayload  , shadowRayPayload  , rtPayload, );
 
 rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
@@ -75,7 +73,7 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     float3 diff      = tHit * direction;
     float3 hitPoint  = origin + diff;
 
-    // Sample 1 light.
+    // Sample one light.
     const Light & light = lightList[0];
 
     float3 shadowRayDirection = light.position - hitPoint;
@@ -84,13 +82,42 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     float distance = sqrtf(distanceSquared);
     Ray ray(hitPoint, normalizedShadowRayDirection, ShadowRay, rayEpsilon, distance-rayEpsilon);
 
-    ShadowRayPayload payload;
-    payload.attenuation = 1.0f;
-    rtTrace(rootObject, ray, payload);
+    ShadowRayPayload shadowRayPayload;
+    shadowRayPayload.attenuation = 1.0f;
+    rtTrace(rootObject, ray, shadowRayPayload);
 
-    radianceRayPayload.radiance = payload.attenuation * pairwiseMul(light.flux, Kd) *
+    float3 radiance = shadowRayPayload.attenuation * pairwiseMul(light.flux, Kd) *
         fmaxf(0.0f, dot(ffnormal, normalizedShadowRayDirection)) /
         (4.0f * M_PIf * distanceSquared);
+
+    RadianceRayPayload & payload = radianceRayPayload;
+    // check if there're enough photons or the ray depth is too deep
+    if (payload.depth >= MAX_RAY_DEPTH)
+        return;
+    ++payload.depth;
+
+    // otherwise, samples a new direction
+    float3 W = normalize(ffnormal);
+    float3 U = cross(W, make_float3(0.0f, 1.0f, 0.0f));
+    if (fabsf(U.x) < 0.001f && fabsf(U.y) < 0.001f && fabsf(U.z) < 0.001f)
+        U = cross(W, make_float3(1.0f, 0.0f, 0.0f));
+    U = normalize(U);
+    float3 V = cross(W, U);
+
+    uint sampleIndex = payload.sampleIndexBase;
+    float2 sample = make_float2(sampleList[sampleIndex], sampleList[sampleIndex+1]);
+    payload.sampleIndexBase += 2;
+
+    // Tweak sample according to cosine term.
+    sample.x = asinf(sample.x * 2.0f - 1.0f) / M_PIf + 0.5f;
+    sample.y = asinf(sample.y * 2.0f - 1.0f) / M_PIf + 0.5f;
+    float3 newDirection = sampleHemisphereUniformly(sample);
+    newDirection = newDirection.x*U + newDirection.y*V + newDirection.z*W;
+
+    Ray newRay(hitPoint, newDirection, RadianceRay, rayEpsilon);
+    rtTrace(rootObject, newRay, payload);
+    payload.radiance *= fmaxf(0.0f, dot(-direction, newDirection));
+    payload.radiance += radiance;
 }   /* -----  end of function handleRadianceRayClosestHit  ----- */
 
 

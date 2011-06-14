@@ -16,12 +16,6 @@
  * =====================================================================================
  */
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 /*-----------------------------------------------------------------------------
  *  Header files from OptiX
  *-----------------------------------------------------------------------------*/
@@ -40,36 +34,18 @@ using namespace MaoPPM;
 
 
 
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
-rtBuffer<float3>    vertexList;     
-rtBuffer<uint3>     vertexIndexList;
+rtBuffer<float3, 1>  vertexList;
+rtBuffer<uint3 , 1>  vertexIndexList;
 rtDeclareVariable(float3, geometricNormal,  attribute geometric_normal, ); 
 rtDeclareVariable(float3, shadingNormal  ,  attribute shading_normal  , ); 
 rtDeclareVariable(optix::Ray, currentRay, rtCurrentRay, );
 
 
 
-
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
-
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  
- *  Description:  
+ *         Name:  boundingBox
+ *  Description:  Create bounding box for the specific triangle.
  * =====================================================================================
  */
 RT_PROGRAM void boundingBox(int primitiveIndex, float result[6])
@@ -92,8 +68,8 @@ RT_PROGRAM void boundingBox(int primitiveIndex, float result[6])
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  
- *  Description:  
+ *         Name:  intersect
+ *  Description:  Intersect a ray with an triangle.
  * =====================================================================================
  */
 RT_PROGRAM void intersect(int primitiveIndex)
@@ -111,7 +87,7 @@ RT_PROGRAM void intersect(int primitiveIndex)
         if (rtPotentialIntersection(tHit)) {
             shadingNormal   = normal;
             geometricNormal = normal;
-            rtReportIntersection(0);                // we have only one material
+            rtReportIntersection(0);    // we have only one material
         }
     }
 }   /* -----  end of function intersect  ----- */

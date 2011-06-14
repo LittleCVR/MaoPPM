@@ -31,7 +31,8 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "math.cu"
+#include    "sampler.h"
+#include    "utility.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -57,7 +58,6 @@ using namespace MaoPPM;
 rtBuffer<float4,      2>  outputBuffer;
 rtBuffer<PixelSample, 2>  pixelSampleList;
 rtBuffer<Photon,      1>  photonMap;
-rtBuffer<Light,       1>  lightList;
 
 /*-----------------------------------------------------------------------------
  *  variables

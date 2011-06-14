@@ -46,10 +46,15 @@ class PathTracingRenderer : public Renderer {
 
     public:     // methods
         void    init();
+        void    resize(unsigned int width, unsigned int height);
         void    render(const Scene::RayGenCameraData & cameraData);
 
         void setMaterialPrograms(const std::string & name,
                 optix::Material & material);
+
+    private:    // attributes
+        unsigned int    m_frame;
+        optix::Buffer   m_averagedOutputBuffer;
 };  /* -----  end of class PathTracingRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

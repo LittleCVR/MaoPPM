@@ -25,8 +25,8 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "math.cu"
-#include    "samplers.cu"
+#include    "sampler.h"
+#include    "utility.h"
 
 /*----------------------------------------------------------------------------
  *  namespace

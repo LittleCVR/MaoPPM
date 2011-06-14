@@ -16,39 +16,45 @@
  * =====================================================================================
  */
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
+#ifndef MAOPPM_SAMPLERS_H
+#define MAOPPM_SAMPLERS_H
 
 /*-----------------------------------------------------------------------------
  *  Header files from OptiX
  *-----------------------------------------------------------------------------*/
 #include    <optix_world.h>
 
+/*----------------------------------------------------------------------------
+ *  header files of our own
+ *----------------------------------------------------------------------------*/
+#include    "global.h"
+
 /*-----------------------------------------------------------------------------
  *  namespace
  *-----------------------------------------------------------------------------*/
 using namespace optix;
+using namespace MaoPPM;
 
 
 
+rtBuffer<Light, 1>  lightList;
 
 
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
 
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  
+ *  Description:  
+ * =====================================================================================
+ */
+__device__ __inline__ uint sampleOneLight(const float & sample, float * probability)
+{
+    /* TODO: sample a light */
+    *probability = 1.0f;
+    return 0;
+}   /* -----  end of function sampleOneLight  ----- */
 
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
 
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -85,3 +91,5 @@ __device__ __inline__ float3 sampleHemisphereUniformly(const float2 & sample)
     z = z > 0.0f ? sqrtf(z) : 0.0f;
     return make_float3(x, y, z);
 }   /* -----  end of function sampleHemisphereUniformly  ----- */
+
+#endif  /* -----  #ifndef MAOPPM_SAMPLERS_H  ----- */

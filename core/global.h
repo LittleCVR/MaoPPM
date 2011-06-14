@@ -107,7 +107,9 @@ typedef struct Light {
 
 
 typedef struct RadianceRayPayload {
+    unsigned int    depth;
     optix::float3   radiance;
+    unsigned int    sampleIndexBase;
 } RadianceRayPayload ;
 
 

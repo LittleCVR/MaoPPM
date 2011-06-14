@@ -120,7 +120,7 @@ void System::parseArguments(int argc, char ** argv)
             if (++i < argc) {
                 string rendererType(argv[i]);
                 cerr << "Specified renderer: " << rendererType << "." << endl;
-                if (rendererType == "PathTracer")
+                if (rendererType == "PathTracing")
                     m_renderer = new PathTracingRenderer;
                 else if (rendererType == "PPM")
                     m_renderer = new PPMRenderer;
@@ -148,9 +148,9 @@ void System::printUsageAndExit(const char * fileName, bool doExit)
     std::cerr
         << "Usage  : " << fileName << " [options]" << std::endl
         << "App options:" << std::endl
-        << "  -h | --help             Print this usage message"                                                        << std::endl
-        << "  -t | --timeout <sec>    Seconds before stopping rendering. Set to 0 for no stopping."                    << std::endl
-        << "  -r | --renderer <type>  Specify renderer, available renderers are: PathTracer, PPM. PPM is the default." << std::endl
+        << "  -h | --help             Print this usage message"                                                         << std::endl
+        << "  -t | --timeout <sec>    Seconds before stopping rendering. Set to 0 for no stopping."                     << std::endl
+        << "  -r | --renderer <type>  Specify renderer, available renderers are: PathTracing, PPM. PPM is the default." << std::endl
         << std::endl;
 
     GLUTDisplay::printUsage();

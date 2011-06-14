@@ -42,7 +42,8 @@ using namespace MaoPPM;
 
 
 
-PathTracingRenderer::PathTracingRenderer(Scene * scene) : Renderer(scene)
+PathTracingRenderer::PathTracingRenderer(Scene * scene) : Renderer(scene),
+    m_averagedOutputBuffer(NULL)
 {
     /* EMPTY */
 }   /* -----  end of method PathTracingRenderer::PathTracingRenderer  ----- */
@@ -59,6 +60,12 @@ PathTracingRenderer::~PathTracingRenderer()
 void PathTracingRenderer::init()
 {
     Renderer::init();
+
+    m_averagedOutputBuffer = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT);
+    m_averagedOutputBuffer->setFormat(RT_FORMAT_FLOAT4);
+    m_averagedOutputBuffer->setSize(width(), height());
+    context()["averagedOutputBuffer"]->set(m_averagedOutputBuffer);
+
     setEntryPointPrograms("pathTracingPassPrograms.cu", PathTracingPass);
     setMissProgram("pathTracingPassPrograms.cu", RadianceRay, "handleRadianceRayMiss");
 }   /* -----  end of method PathTracingRenderer::init  ----- */
@@ -73,11 +80,26 @@ void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
         context()["cameraU"]->setFloat(cameraData.U);
         context()["cameraV"]->setFloat(cameraData.V);
         context()["cameraW"]->setFloat(cameraData.W);
+        m_frame = 0;
     }
 
+    // Launch path tracing pass.
+    generateSamples(2 * width() * height() * MAX_RAY_DEPTH);
+    context()["frameCount"]->setUint(m_frame);
     context()["launchSize"]->setUint(width(), height());
     context()->launch(PathTracingPass, width(), height());
+
+    // Add frame count.
+    m_frame++;
 }   /* -----  end of method PathTracingRenderer::render  ----- */
+
+
+
+void PathTracingRenderer::resize(unsigned int width, unsigned int height)
+{
+    Renderer::resize(width, height);
+    m_averagedOutputBuffer->setSize(width, height);
+}   /* -----  end of method PathTracingRenderer::resize  ----- */
 
 
 
@@ -92,5 +114,10 @@ void PathTracingRenderer::setMaterialPrograms(const std::string & name,
                 scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
     }
     else if (name == "plastic") {
+        string ptxPath = scene()->ptxpath("MaoPPM", "plasticMaterialPathTracingPrograms.cu");
+        material->setClosestHitProgram(RadianceRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleRadianceRayClosestHit"));
+        material->setAnyHitProgram(ShadowRay,
+                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit"));
     }
 }   /* -----  end of method PathTracingRenderer::setMaterialPrograms  ----- */
