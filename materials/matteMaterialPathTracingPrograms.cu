@@ -117,7 +117,7 @@ RT_PROGRAM void handleRadianceRayClosestHit()
 
     Ray newRay(hitPoint, newDirection, RadianceRay, rayEpsilon);
     rtTrace(rootObject, newRay, payload);
-    payload.radiance  = pairwiseMul(Kd, payload.radiance) * dot(-direction, newDirection) / M_PIf;
+    payload.radiance  = pairwiseMul(Kd, payload.radiance);
     payload.radiance += radiance;
 }   /* -----  end of function handleRadianceRayClosestHit  ----- */
 
