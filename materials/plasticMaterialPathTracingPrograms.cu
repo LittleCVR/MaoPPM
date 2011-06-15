@@ -89,12 +89,12 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     shadowRayPayload.attenuation = 1.0f;
     rtTrace(rootObject, ray, shadowRayPayload);
 
-    float3 radiance = shadowRayPayload.attenuation * pairwiseMul(light.flux, Kd) *
+    float3 diffuse = shadowRayPayload.attenuation * pairwiseMul(light.flux, Kd) *
         fmaxf(0.0f, dot(ffnormal, normalizedShadowRayDirection)) /
         (4.0f * M_PIf * distanceSquared);
     float3 half = normalize(-direction + normalizedShadowRayDirection);
     float3 glossy = shadowRayPayload.attenuation * (exponent + 2.0f) / (2.0f * M_PIf) *
-        powf(dot(half, ffnormal), exponent) * pairwiseMul(Ks, light.flux) / 
+        fmaxf(0.0f, powf(dot(half, ffnormal), exponent)) * pairwiseMul(Ks, light.flux) / 
         (4.0f * M_PIf * distanceSquared);
 
     RadianceRayPayload & payload = radianceRayPayload;
@@ -120,14 +120,14 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     float sinTheta = sqrtf(max(0.0f, 1.0f - cosTheta*cosTheta));
     float phi = sample.y * 2.0f * M_PIf;
     half = make_float3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
-    half = half.x*U + half.y*V + half.z*W;
-    float3 newDirection = direction + 2.0f * dot(-direction, half) * half;
-//    glossy = (exponent + 2.0f) / (2.0f * M_PIf) *
-//        powf(dot(half, ffnormal), exponent) * pairwiseMul(Ks, payload.flux);
+    half = normalize(half.x*U + half.y*V + half.z*W);
+    float3 newDirection = normalize(direction + 2.0f * dot(-direction, half) * half);
 
     Ray newRay(hitPoint, newDirection, RadianceRay, rayEpsilon);
     rtTrace(rootObject, newRay, payload);
-    payload.radiance += radiance;
+    payload.radiance = payload.radiance * fmaxf(0.0f, dot(-direction, newDirection)) +
+        payload.radiance * fmaxf(0.0f, powf(dot(half, ffnormal), exponent));
+    payload.radiance += diffuse + glossy;
 }   /* -----  end of function handleRadianceRayClosestHit  ----- */
 
 
