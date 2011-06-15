@@ -86,9 +86,10 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     shadowRayPayload.attenuation = 1.0f;
     rtTrace(rootObject, ray, shadowRayPayload);
 
-    float3 radiance = shadowRayPayload.attenuation * pairwiseMul(light.flux, Kd) *
-        fmaxf(0.0f, dot(ffnormal, normalizedShadowRayDirection)) /
-        (4.0f * M_PIf * distanceSquared);
+    float3 radiance = shadowRayPayload.attenuation *                // visibility
+        pairwiseMul(light.flux, Kd) *                               // BRDF
+        fmaxf(0.0f, dot(ffnormal, normalizedShadowRayDirection)) /  // cosine term
+        (4.0f * M_PIf * distanceSquared);                           // solid angle and area
 
     RadianceRayPayload & payload = radianceRayPayload;
     // check if there're enough photons or the ray depth is too deep
@@ -116,7 +117,7 @@ RT_PROGRAM void handleRadianceRayClosestHit()
 
     Ray newRay(hitPoint, newDirection, RadianceRay, rayEpsilon);
     rtTrace(rootObject, newRay, payload);
-    payload.radiance *= dot(-direction, newDirection) / M_PIf;
+    payload.radiance  = pairwiseMul(Kd, payload.radiance) * dot(-direction, newDirection) / M_PIf;
     payload.radiance += radiance;
 }   /* -----  end of function handleRadianceRayClosestHit  ----- */
 
