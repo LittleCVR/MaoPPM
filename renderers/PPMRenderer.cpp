@@ -56,8 +56,8 @@ PPMRenderer::~PPMRenderer()
 
 
 
-void PPMRenderer::buildPhotonMapAcceleration(MaoPPM::Photon * photonList,
-        uint start, uint end, MaoPPM::Photon * photonMap,
+void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
+        uint start, uint end, Photon * photonMap,
         uint root, float3 bbMin, float3 bbMax)
 {
     if (end - start == 0) {

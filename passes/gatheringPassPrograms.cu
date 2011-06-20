@@ -16,12 +16,6 @@
  * =====================================================================================
  */
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 /*-----------------------------------------------------------------------------
  *  Header files from OptiX
  *-----------------------------------------------------------------------------*/
@@ -33,6 +27,7 @@
 #include    "global.h"
 #include    "sampler.h"
 #include    "utility.h"
+#include    "PPMRenderer.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -42,22 +37,13 @@ using namespace MaoPPM;
 
 
 
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
 /*-----------------------------------------------------------------------------
  *  buffers
  *-----------------------------------------------------------------------------*/
-rtBuffer<float4,      2>  outputBuffer;
-rtBuffer<PixelSample, 2>  pixelSampleList;
-rtBuffer<Photon,      1>  photonMap;
+rtBuffer<float4,                   2>  outputBuffer;
+rtBuffer<Light,                    1>  lightList;
+rtBuffer<PPMRenderer::PixelSample, 2>  pixelSampleList;
+rtBuffer<PPMRenderer::Photon,      1>  photonMap;
 
 /*-----------------------------------------------------------------------------
  *  variables
@@ -72,13 +58,6 @@ rtDeclareVariable(uint, nEmittedPhotons, , );
 
 
 
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  generateRay
@@ -87,7 +66,7 @@ rtDeclareVariable(uint, nEmittedPhotons, , );
  */
 RT_PROGRAM void generateRay()
 {
-    PixelSample & pixelSample = pixelSampleList[launchIndex];
+    PPMRenderer::PixelSample & pixelSample = pixelSampleList[launchIndex];
 
     // Compute direct illumination.
     float3 direct = make_float3(0.0f);
@@ -99,9 +78,9 @@ RT_PROGRAM void generateRay()
         float3 normalizedDirection = normalize(direction);
         float distanceSquared = dot(direction, direction);
         float distance = sqrtf(distanceSquared);
-        Ray ray(pixelSample.position, normalizedDirection, GatheringRay, rayEpsilon, distance-rayEpsilon);
+        Ray ray(pixelSample.position, normalizedDirection, PPMRenderer::GatheringRay, rayEpsilon, distance-rayEpsilon);
 
-        GatheringRayPayload payload;
+        PPMRenderer::GatheringRayPayload payload;
         payload.attenuation = 1.0f;
         rtTrace(rootObject, ray, payload);
 
@@ -130,7 +109,7 @@ RT_PROGRAM void generateRay()
         uint stackNode     = 0u;
         stack[stackPosition++] = 0u;
         do {
-            const Photon & photon = photonMap[stackNode];
+            const PPMRenderer::Photon & photon = photonMap[stackNode];
             if (photon.axis == PHOTON_NULL)
                 stackNode = stack[--stackPosition];
             else {

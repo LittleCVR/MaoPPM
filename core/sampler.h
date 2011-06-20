@@ -37,32 +37,13 @@ using namespace MaoPPM;
 
 
 
-rtBuffer<Light, 1>  lightList;
-
-
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  
- *  Description:  
- * =====================================================================================
- */
-__device__ __inline__ uint sampleOneLight(const float & sample, float * probability)
-{
-    /* TODO: sample a light */
-    *probability = 1.0f;
-    return 0;
-}   /* -----  end of function sampleOneLight  ----- */
-
-
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  sampleSphereUniformly
  *  Description:  Sample a direction on an unit sphere uniformly using the input sample.
  * =====================================================================================
  */
-__device__ __inline__ float3 sampleSphereUniformly(const float2 & sample)
+__device__ float3 sampleSphereUniformly(const float2 & sample)
 {
     float z = 1.0f - 2.0f * sample.x;
     float r = sqrtf(1.0f - z*z);
@@ -81,7 +62,7 @@ __device__ __inline__ float3 sampleSphereUniformly(const float2 & sample)
  *                sample.
  * =====================================================================================
  */
-__device__ __inline__ float3 sampleHemisphereUniformly(const float2 & sample)
+__device__ float3 sampleHemisphereUniformly(const float2 & sample)
 {
     float phi = 2.0f * M_PIf*sample.x;
     float r = sqrtf(sample.y);

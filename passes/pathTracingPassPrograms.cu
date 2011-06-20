@@ -16,6 +16,8 @@
  * =============================================================================
  */
 
+#include    "PathTracingRenderer.h"
+
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
  *----------------------------------------------------------------------------*/
@@ -34,34 +36,25 @@ using namespace MaoPPM;
 
 
 
-/*----------------------------------------------------------------------------
- *  buffers
- *----------------------------------------------------------------------------*/
-rtBuffer<float4,        2>      outputBuffer;
+rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
+rtDeclareVariable(uint2, launchSize ,              , );
 
-/*----------------------------------------------------------------------------
- *  variables
- *----------------------------------------------------------------------------*/
-rtDeclareVariable(float,    rayEpsilon, , );
+rtBuffer<float4, 2>  outputBuffer;
+
 rtDeclareVariable(rtObject, rootObject, , );
-
-rtDeclareVariable(uint, frameCount, , );
+rtDeclareVariable(float3, geometricNormal, attribute geometric_normal, ); 
+rtDeclareVariable(float3, shadingNormal  , attribute shading_normal  , ); 
 
 rtDeclareVariable(float3, cameraPosition, , );
 rtDeclareVariable(float3, cameraU       , , );
 rtDeclareVariable(float3, cameraV       , , );
 rtDeclareVariable(float3, cameraW       , , );
 
-rtDeclareVariable(Ray  , currentRay , rtCurrentRay          ,            );
-rtDeclareVariable(float, tHit       , rtIntersectionDistance,            );
-rtDeclareVariable(RadianceRayPayload, radianceRayPayload    , rtPayload, );
-rtDeclareVariable(ShadowRayPayload  , shadowRayPayload      , rtPayload, );
+rtDeclareVariable(float, rayEpsilon , , );
+rtDeclareVariable(PathTracingRenderer::RadianceRayPayload, radianceRayPayload, rtPayload, );
+rtDeclareVariable(PathTracingRenderer::ShadowRayPayload  , shadowRayPayload  , rtPayload, );
 
-rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
-rtDeclareVariable(uint2, launchSize ,              , );
-
-rtDeclareVariable(float3,   geometricNormal,    attribute geometric_normal, ); 
-rtDeclareVariable(float3,   shadingNormal  ,    attribute shading_normal  , ); 
+rtDeclareVariable(uint, frameCount, , );
 
 
 
@@ -80,11 +73,11 @@ RT_PROGRAM void generateRay()
     float2 cameraRayDirection = (make_float2(launchIndex) + sample) / screenSize * 2.0f - 1.0f;
     float3 worldRayDirection = normalize(cameraRayDirection.x*cameraU + cameraRayDirection.y*cameraV + cameraW);
 
-    Ray ray(cameraPosition, worldRayDirection, RadianceRay, rayEpsilon);
-    RadianceRayPayload payload;
+    Ray ray(cameraPosition, worldRayDirection, PathTracingRenderer::RadianceRay, rayEpsilon);
+    PathTracingRenderer::RadianceRayPayload payload;
     payload.depth           = 0;
     payload.radiance        = make_float3(0.0f);
-    payload.sampleIndexBase = 2 * MAX_RAY_DEPTH * ((launchIndex.y * launchSize.x) + launchIndex.x);
+    payload.sampleIndexBase = 2 * DEFAULT_MAX_RAY_DEPTH* ((launchIndex.y * launchSize.x) + launchIndex.x);
     rtTrace(rootObject, ray, payload);
 
     if (frameCount == 0)
@@ -93,18 +86,6 @@ RT_PROGRAM void generateRay()
     outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * make_float4(payload.radiance, 1.0f) +
         (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
 }   /* -----  end of function generateRay  ----- */
-
-
-
-/* 
- * ===  FUNCTION  ==============================================================
- *         Name:  handleException
- *  Description:  
- * =============================================================================
- */
-RT_PROGRAM void handleException()
-{
-}   /* -----  end of function handleException  ----- */
 
 
 

@@ -51,17 +51,19 @@ class Renderer {
         inline Scene *        scene() const { return m_scene; }
         void                  setScene(Scene * scene);
 
+        virtual unsigned int  nPasses() const = 0;
+        virtual unsigned int  nRayTypes() const = 0;
+        virtual void setMaterialPrograms(const std::string & name,
+                optix::Material & material) = 0;
+
         virtual void          init();
         virtual void          render(const Scene::RayGenCameraData & cameraData) = 0;
         virtual void          resize(unsigned int width, unsigned int height);
 
-        virtual void setMaterialPrograms(const std::string & name,
-                optix::Material & material) = 0;
-
-#ifdef DEBUG
+#ifndef NDEBUG
     private:    // methods
         void                  initDebug();
-#endif
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
     protected:  // methods
         /*
@@ -93,13 +95,15 @@ class Renderer {
          */
         void  generateSamples(const optix::uint nSamples);
 
-        void  setEntryPointPrograms(const std::string & cuFileName,
-                unsigned int entryPointIndex,
-                const std::string & rayGenerationProgramName  = "generateRay",
-                const std::string & exceptionProgramName      = "handleException");
-        void  setMissProgram(const std::string & cuFileName,
-                unsigned int rayType,
+        void  setExceptionProgram(unsigned int entryPointIndex,
+                const std::string & cuFileName = "exception.cu",
+                const std::string & exceptionProgramName = "handleException");
+        void  setMissProgram(unsigned int rayType,
+                const std::string & cuFileName,
                 const std::string & missProgramName);
+        void  setRayGenerationProgram(unsigned int entryPointIndex,
+                const std::string & cuFileName,
+                const std::string & rayGenerationProgramName  = "generateRay");
 
     private:    // attributes
         Scene *        m_scene;

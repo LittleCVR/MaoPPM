@@ -6,16 +6,18 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   OPTIX_add_sample_executable(MaoPPM
     # header files
     core/global.h
+    core/reflection.h
+    core/sampler.h
     core/ParameterVector.h
     core/Renderer.h
     core/Scene.h
     core/SceneBuilder.h
     core/System.h
     renderers/PathTracingRenderer.h
-    renderers/PPMRenderer.h
+#    renderers/PPMRenderer.h
     # source files
-    core/global.cpp
     core/main.cpp
+    core/global.cpp
     core/Renderer.cpp
     core/Scene.cpp
     core/SceneBuilder.cpp
@@ -23,17 +25,18 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     parsers/pbrtParser.cc
     parsers/pbrtScanner.cc
     renderers/PathTracingRenderer.cpp
-    renderers/PPMRenderer.cpp
+#    renderers/PPMRenderer.cpp
     # CUDA source files
+    core/exception.cu
     materials/matteMaterialPathTracingPrograms.cu
-    materials/matteMaterialPPMPrograms.cu
-    materials/plasticMaterialPathTracingPrograms.cu
-    materials/plasticMaterialPPMPrograms.cu
+#    materials/matteMaterialPPMPrograms.cu
+#    materials/plasticMaterialPathTracingPrograms.cu
+#    materials/plasticMaterialPPMPrograms.cu
     passes/pathTracingPassPrograms.cu
-    passes/pixelSamplingPassPrograms.cu
-    passes/importonShootingPassPrograms.cu
-    passes/photonShootingPassPrograms.cu
-    passes/gatheringPassPrograms.cu
+#    passes/pixelSamplingPassPrograms.cu
+#    passes/importonShootingPassPrograms.cu
+#    passes/photonShootingPassPrograms.cu
+#    passes/gatheringPassPrograms.cu
     shapes/triangleMeshShapePrograms.cu
     )
 else()

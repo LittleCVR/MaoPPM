@@ -39,7 +39,7 @@ using namespace MaoPPM;
 
 
 Renderer::Renderer(Scene * scene) :
-    m_scene(NULL), m_width(INITIAL_WIDTH), m_height(INITIAL_HEIGHT)
+    m_scene(NULL), m_width(DEFAULT_WIDTH), m_height(DEFAULT_HEIGHT)
 {
     setScene(scene);
 }   /* -----  end of method Renderer::Renderer  ----- */
@@ -55,11 +55,9 @@ Renderer::~Renderer()
 
 void Renderer::init()
 {
-#ifdef DEBUG
+#ifndef NDEBUG
     initDebug();
-#endif
-
-    context()->setStackSize(STACK_SIZE);
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
     // create output buffer
     m_outputBuffer = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, m_width, m_height);
@@ -73,7 +71,7 @@ void Renderer::init()
 
 
 
-#ifdef DEBUG
+#ifndef NDEBUG
 void Renderer::initDebug()
 {
     // Get device compute capability and determine if we can enable the
@@ -96,7 +94,7 @@ void Renderer::initDebug()
         context()->setPrintEnabled(true);
     }
 }   /* -----  end of method Renderer::initDebug  ----- */
-#endif
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
 
 
@@ -136,28 +134,32 @@ void Renderer::resize(unsigned int width, unsigned int height)
 
 
 
-void Renderer::setEntryPointPrograms(const std::string & cuFileName,
-        unsigned int entryPointIndex,
-        const std::string & rayGenerationProgramName,
+void Renderer::setRayGenerationProgram(unsigned int entryPointIndex,
+        const std::string & cuFileName,
+        const std::string & rayGenerationProgramName)
+{
+    std::string ptxPath = scene()->ptxpath("MaoPPM", cuFileName);
+    Program rayGenerationProgram = context()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
+    context()->setRayGenerationProgram(entryPointIndex, rayGenerationProgram);
+}   /* -----  end of method Renderer::setEntryPointPrograms  ----- */
+
+
+
+void Renderer::setExceptionProgram(unsigned int entryPointIndex,
+        const std::string & cuFileName,
         const std::string & exceptionProgramName)
 {
     std::string ptxPath = scene()->ptxpath("MaoPPM", cuFileName);
-
-    Program rayGenerationProgram = context()->createProgramFromPTXFile(ptxPath, rayGenerationProgramName);
-    context()->setRayGenerationProgram(entryPointIndex, rayGenerationProgram);
-
     Program exceptionProgram = context()->createProgramFromPTXFile(ptxPath, exceptionProgramName);
     context()->setExceptionProgram(entryPointIndex, exceptionProgram);
 }   /* -----  end of method Renderer::setEntryPointPrograms  ----- */
 
 
 
-void Renderer::setMissProgram(const std::string & cuFileName,
-        unsigned int rayType,
-        const std::string & missProgramName)
+void Renderer::setMissProgram(unsigned int rayType,
+        const std::string & cuFileName, const std::string & missProgramName)
 {
     std::string ptxPath = scene()->ptxpath("MaoPPM", cuFileName);
-
     Program missProgram = context()->createProgramFromPTXFile(ptxPath, missProgramName);
     context()->setMissProgram(rayType, missProgram);
 }   /* -----  end of method Renderer::setMissProgram */

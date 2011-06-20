@@ -22,7 +22,7 @@
  *  header files from std C/C++
  *-----------------------------------------------------------------------------*/
 #include    <cstdlib>
-#include	<ctime>
+#include    <ctime>
 #include    <iostream>
 
 /*-----------------------------------------------------------------------------
@@ -33,11 +33,9 @@
 /*-----------------------------------------------------------------------------
  *  header files of our own
  *-----------------------------------------------------------------------------*/
-#include    "PathTracingRenderer.h"
-#include    "PPMRenderer.h"
-#include    "Renderer.h"
 #include    "Scene.h"
-#include    "SceneBuilder.h"
+#include    "PathTracingRenderer.h"
+//#include    "PPMRenderer.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -53,7 +51,7 @@ SceneBuilder * g_sceneBuilder = NULL;
 
 
 System::System(int argc, char ** argv) :
-    m_timeout(0.0f), m_scene(NULL), m_renderer(NULL)
+    m_timeout(DEFAULT_TIMEOUT), m_scene(NULL), m_renderer(NULL)
 {
     GLUTDisplay::init(argc, argv);
 
@@ -61,6 +59,20 @@ System::System(int argc, char ** argv) :
         printUsageAndExit(argv[0], false);
 
     parseArguments(argc, argv);
+
+    // Seed random number generator.
+    srand(static_cast<unsigned int>(time(NULL)));
+
+    // Allocate space for Scene and Renderer.
+    m_scene = new Scene;
+//    if (!m_renderer)
+//        m_renderer = new PPMRenderer(m_scene);
+//    else
+//        m_renderer->setScene(m_scene);
+    if (!m_renderer)
+        m_renderer = new PathTracingRenderer(m_scene);
+    else
+        m_renderer->setScene(m_scene);
 }   /* -----  end of System::System  ----- */
 
 
@@ -74,16 +86,8 @@ System::~System()
 
 int System::exec()
 {
-    srand(static_cast<unsigned int>(time(NULL)));
-
-    m_scene = new Scene;
-    if (!m_renderer)
-        m_renderer = new PPMRenderer(m_scene);
-    else
-        m_renderer->setScene(m_scene);
-
+    // GLUT main loop.
     try {
-        /* :TODO:2011/3/28 18:00:54:: Try to understand what consequenses this line will cause. */
         GLUTDisplay::setUseSRGB(true);
         GLUTDisplay::setProgressiveDrawingTimeout(m_timeout);
         GLUTDisplay::run("MaoPPM", m_scene, GLUTDisplay::CDProgressive);
@@ -91,9 +95,10 @@ int System::exec()
         sutilReportError(e.getErrorString().c_str());
         exit(EXIT_FAILURE);
     }
+
+    // Actually these lines are unreachable.
     delete m_scene;
     delete m_renderer;
-
     return EXIT_SUCCESS;
 }   /* -----  end of method System::exec  ----- */
 
@@ -122,8 +127,8 @@ void System::parseArguments(int argc, char ** argv)
                 cerr << "Specified renderer: " << rendererType << "." << endl;
                 if (rendererType == "PathTracing")
                     m_renderer = new PathTracingRenderer;
-                else if (rendererType == "PPM")
-                    m_renderer = new PPMRenderer;
+//                else if (rendererType == "PPM")
+//                    m_renderer = new PPMRenderer;
                 else {
                     cerr << "Unknown renderer: " << rendererType << endl;
                     printUsageAndExit(argv[0]);

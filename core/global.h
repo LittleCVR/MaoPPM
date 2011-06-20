@@ -1,194 +1,52 @@
 /*
- * =====================================================================================
+ * =============================================================================
  *
  *       Filename:  global.h
  *
- *    Description:  This file contains global settings and class declarations.
+ *    Description:  This file contains default global settings and class forward
+ *                  declarations.
  *
  *        Version:  1.0
- *        Created:  2011/3/29 16:04:54
+ *        Created:  2011-03-29 16:04:54
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
  *                  Department of Computer Science & Information Engineering,
  *                  National Taiwan University
  *
- * =====================================================================================
+ * =============================================================================
  */
 
-#ifndef GLOBAL_H
-#define GLOBAL_H
-
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
-/*-----------------------------------------------------------------------------
- *  header files from OptiX
- *-----------------------------------------------------------------------------*/
-#include    <optix_world.h>
-
-
-
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-#define DEBUG 1
-
-#define STACK_SIZE          2000
-
-#define INITIAL_WIDTH       128
-#define INITIAL_HEIGHT      128
-#define PHOTON_WIDTH        128
-#define PHOTON_HEIGHT       128
-
-#define RAY_EPSILON         0.001f
-#define MAX_RAY_DEPTH       4
-
-#define PIXEL_SAMPLE_HIT    1
-
-#define PHOTON_COUNT        4
-#define PHOTON_NULL         0
-#define PHOTON_LEAF         1
-#define AXIS_X              2 
-#define AXIS_Y              4
-#define AXIS_Z              8
-
-
-
-
+#ifndef MAOPPM_CORE_GLOBAL_H
+#define MAOPPM_CORE_GLOBAL_H
 
 namespace MaoPPM {
 
-enum Pass {
-    // For path tracing.
-    PathTracingPass,
-    // For PPM & MaoPPM.
-    PixelSamplingPass,
-    ImportonShootingPass,
-    PhotonShootingPass,
-    GatheringPass,
-    // Count.
-    nPasses
-};  /* ----------  end of enum Pass  ---------- */
+/*----------------------------------------------------------------------------
+ *  default global settings
+ *----------------------------------------------------------------------------*/
+static const unsigned int  DEFAULT_STACK_SIZE     = 4096;
+static const unsigned int  DEFAULT_WIDTH          = 512;
+static const unsigned int  DEFAULT_HEIGHT         = 512;
+static const float         DEFAULT_TIMEOUT        = 0.0f;    // forever
+static const unsigned int  DEFAULT_HEAP_SIZE      = 32;      // 32 bytes
+static const float         DEFAULT_RAY_EPSILON    = 1.0e-3;
+static const unsigned int  DEFAULT_MAX_RAY_DEPTH  = 4;
 
+/*----------------------------------------------------------------------------
+ *  typedefs
+ *----------------------------------------------------------------------------*/
+typedef unsigned int HeapIndex;
 
-
-enum RayType {
-    // For path tracing.
-    RadianceRay,
-    ShadowRay,
-    // For PPM & MaoPPm.
-    PixelSamplingRay,
-    ImportonShootingRay,
-    PhotonShootingRay,
-    GatheringRay,
-    // Count.
-    nRayTypes
-};  /* ----------  end of enum RayType  ---------- */
-
-
-
-enum Material {
-    MatteMaterial,
-    PlasticMaterial
-};
-
-
-
-typedef struct Light {
-    optix::float3   position;
-    optix::float3   flux;
-} Light ;
-
-
-
-typedef struct RadianceRayPayload {
-    unsigned int    depth;
-    optix::float3   radiance;
-    unsigned int    sampleIndexBase;
-} RadianceRayPayload ;
-
-
-
-typedef struct ShadowRayPayload {
-    float           attenuation;
-} ShadowRayPayload ;
-
-
-
-typedef struct PixelSample {
-    optix::uint     flags;
-    optix::float3   position;
-    optix::float3   incidentDirection;
-    optix::float3   normal;
-    optix::float3   flux;
-    int             material;
-    optix::float3   Kd;
-    optix::float3   Ks;
-    float           exponent;
-    optix::uint     nPhotons;
-    float           radiusSquared;
-} PixelSample ; /* ----------  end of struct PixelSample  ---------- */
-
-
-
-typedef struct PixelSamplingRayPayload {
-    float           attenuation;
-} PixelSamplingRayPayload ; /* ----------  end of struct PixelSamplingRayPayload  ---------- */
-
-
-
-typedef struct PhotonShootingRayPayload {
-    optix::uint     nPhotons;
-    optix::uint     photonIndexBase;
-    optix::uint     sampleIndexBase;
-    float           attenuation;
-    optix::uint     depth;
-    optix::float3   flux;
-} PhotonShootingRayPayload ; /* ----------  end of struct PhotonShootingRayPayload  ---------- */
-
-
-
-typedef struct GatheringRayPayload {
-    float   attenuation;
-} GatheringRayPayload ; /* ----------  end of struct PixelSample  ---------- */
-
-
-
-typedef struct Photon {
-    optix::float3   position;
-    optix::float3   flux;
-    optix::float3   normal;                     /* the surface normal */
-    optix::float3   incidentDirection;          /* pointed outward */
-    optix::uint     axis;
-
-    static bool positionXComparator(const Photon & photon1, const Photon & photon2)
-    {
-        return photon1.position.x < photon2.position.x;
-    }
-    static bool positionYComparator(const Photon & photon1, const Photon & photon2)
-    {
-        return photon1.position.y < photon2.position.y;
-    }
-    static bool positionZComparator(const Photon & photon1, const Photon & photon2)
-    {
-        return photon1.position.z < photon2.position.z;
-    }
-} Photon ;  /* ----------  end of struct Photon  ---------- */
-
-
-
+/*----------------------------------------------------------------------------
+ *  class forward declarations
+ *----------------------------------------------------------------------------*/
 class Renderer;
 class Scene;
 class SceneBuilder;
+class System;
 
-
-
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  Helper functions for debugging.
  *
  *  fatal(...) and critical(...) are used to issue error messages, with the
@@ -196,24 +54,20 @@ class SceneBuilder;
  *  message was print out, where critical(...) will not.
  *
  *  warning(...) and debug(...) are for debugging use only. Both of them won't
- *  do anything if the DEBUG macro was not defined.
- *-----------------------------------------------------------------------------*/
+ *  do anything if the NDEBUG macro was defined.
+ *----------------------------------------------------------------------------*/
 
 void fatal    (const char * message, ... );
 void critical (const char * message, ... );
 
-#ifdef DEBUG
+#ifndef NDEBUG
     void warning (const char * message, ... );
     void debug   (const char * message, ... );
-#else
+#else   /* -----  else of #ifndef NDEBUG  ----- */
     inline void warning (const char * message, ... ) { /* nothing to do */ }
     inline void debug   (const char * message, ... ) { /* nothing to do */ }
-#endif
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
 }   /* ----------  end of namespace MaoPPM  ---------- */
 
-
-
-
-
-#endif  /* ----- #ifndef GLOBAL_H  ----- */
+#endif  /* ----- #ifndef MAOPPM_CORE_GLOBAL_H  ----- */

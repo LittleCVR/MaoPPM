@@ -16,12 +16,6 @@
  * =====================================================================================
  */
 
-
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
 /*-----------------------------------------------------------------------------
  *  Header files from OptiX
  *-----------------------------------------------------------------------------*/
@@ -33,6 +27,7 @@
 #include    "global.h"
 #include    "sampler.h"
 #include    "utility.h"
+#include    "PPMRenderer.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -42,21 +37,12 @@ using namespace MaoPPM;
 
 
 
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
 /*-----------------------------------------------------------------------------
  *  buffers
  *-----------------------------------------------------------------------------*/
-rtBuffer<Photon, 1>  photonList;
-rtBuffer<float,  1>  sampleList;
+rtBuffer<Light,               1>  lightList;
+rtBuffer<PPMRenderer::Photon, 1>  photonList;
+rtBuffer<float,               1>  sampleList;
 
 /*-----------------------------------------------------------------------------
  *  variables
@@ -69,14 +55,6 @@ rtDeclareVariable(uint2, launchSize ,              , );
 
 
 
-
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  generateRay
@@ -88,7 +66,7 @@ RT_PROGRAM void generateRay()
     // clear the photon map
     uint photonIndexBase = (launchIndex.y*launchSize.x + launchIndex.x) * PHOTON_COUNT;
     for (uint i = photonIndexBase; i < photonIndexBase + PHOTON_COUNT; ++i) {
-        Photon & photon = photonList[i];
+        PPMRenderer::Photon & photon = photonList[i];
         photon.flux = make_float3(0.0f);
     }
 
@@ -108,8 +86,8 @@ RT_PROGRAM void generateRay()
     // sample sphere uniformly
     float3 direction = sampleSphereUniformly(sample);
 
-    Ray ray(position, direction, PhotonShootingRay, rayEpsilon);
-    PhotonShootingRayPayload payload;
+    Ray ray(position, direction, PPMRenderer::PhotonShootingRay, rayEpsilon);
+    PPMRenderer::PhotonShootingRayPayload payload;
     payload.nPhotons        = 0u;
     payload.photonIndexBase = photonIndexBase;
     payload.sampleIndexBase = sampleIndex;

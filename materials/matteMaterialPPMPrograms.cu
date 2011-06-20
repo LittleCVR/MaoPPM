@@ -27,6 +27,7 @@
 #include    "global.h"
 #include    "sampler.h"
 #include    "utility.h"
+#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  namespace
@@ -36,9 +37,9 @@ using namespace MaoPPM;
 
 
 
-rtBuffer<PixelSample, 2>  pixelSampleList;
-rtBuffer<Photon,      1>  photonList;
-rtBuffer<float,       1>  sampleList;
+rtBuffer<PPMRenderer::PixelSample, 2>  pixelSampleList;
+rtBuffer<PPMRenderer::Photon,      1>  photonList;
+rtBuffer<float,                    1>  sampleList;
 
 rtDeclareVariable(float,    rayEpsilon, , );
 rtDeclareVariable(rtObject, rootObject, , );
@@ -46,9 +47,9 @@ rtDeclareVariable(rtObject, rootObject, , );
 rtDeclareVariable(Ray  , currentRay, rtCurrentRay          , );
 rtDeclareVariable(float, tHit      , rtIntersectionDistance, );
 
-rtDeclareVariable(PixelSamplingRayPayload , pixelSamplingRayPayload , rtPayload, );
-rtDeclareVariable(PhotonShootingRayPayload, photonShootingRayPayload, rtPayload, );
-rtDeclareVariable(GatheringRayPayload     , gatheringRayPayload     , rtPayload, );
+rtDeclareVariable(PPMRenderer::PixelSamplingRayPayload , pixelSamplingRayPayload , rtPayload, );
+rtDeclareVariable(PPMRenderer::PhotonShootingRayPayload, photonShootingRayPayload, rtPayload, );
+rtDeclareVariable(PPMRenderer::GatheringRayPayload     , gatheringRayPayload     , rtPayload, );
 
 rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
@@ -76,7 +77,7 @@ RT_PROGRAM void handlePixelSamplingRayClosestHit()
     float3 diff      = tHit * direction;
     float3 hitPoint  = origin + diff;
 
-    PixelSample & pixelSample = pixelSampleList[launchIndex];
+    PPMRenderer::PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.flags             |= PIXEL_SAMPLE_HIT;
     pixelSample.position           = hitPoint; 
     pixelSample.incidentDirection  = -direction;
@@ -104,9 +105,9 @@ RT_PROGRAM void handlePhotonShootingRayClosestHit()
     float3 hitPoint  = origin + tHit*direction;
 
     // record this photon if it had bounced at least once
-    PhotonShootingRayPayload & payload = photonShootingRayPayload;
+    PPMRenderer::PhotonShootingRayPayload & payload = photonShootingRayPayload;
     if (payload.depth > 0u) {
-        Photon & photon = photonList[payload.photonIndexBase];
+        PPMRenderer::Photon & photon = photonList[payload.photonIndexBase];
         photon.position          = hitPoint;
         photon.flux              = payload.flux;
         photon.normal            = ffnormal;
@@ -137,7 +138,7 @@ RT_PROGRAM void handlePhotonShootingRayClosestHit()
     float3 newDirection = sampleHemisphereUniformly(sample);
     newDirection = newDirection.x*U + newDirection.y*V + newDirection.z*W;
 
-    Ray ray(hitPoint, newDirection, PhotonShootingRay, rayEpsilon);
+    Ray ray(hitPoint, newDirection, PPMRenderer::PhotonShootingRay, rayEpsilon);
     payload.depth += 1;
     payload.flux   = pairwiseMul(Kd, payload.flux);
     rtTrace(rootObject, ray, payload);

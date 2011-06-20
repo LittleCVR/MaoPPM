@@ -39,6 +39,7 @@ class System {
         System(int argc, char ** argv);
         ~System();
 
+    public:
         int     exec();
 
     private:    // methods

@@ -42,8 +42,7 @@ using namespace MaoPPM;
 
 
 
-PathTracingRenderer::PathTracingRenderer(Scene * scene) : Renderer(scene),
-    m_averagedOutputBuffer(NULL)
+PathTracingRenderer::PathTracingRenderer(Scene * scene) : Renderer(scene)
 {
     /* EMPTY */
 }   /* -----  end of method PathTracingRenderer::PathTracingRenderer  ----- */
@@ -61,13 +60,9 @@ void PathTracingRenderer::init()
 {
     Renderer::init();
 
-    m_averagedOutputBuffer = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT);
-    m_averagedOutputBuffer->setFormat(RT_FORMAT_FLOAT4);
-    m_averagedOutputBuffer->setSize(width(), height());
-    context()["averagedOutputBuffer"]->set(m_averagedOutputBuffer);
-
-    setEntryPointPrograms("pathTracingPassPrograms.cu", PathTracingPass);
-    setMissProgram("pathTracingPassPrograms.cu", RadianceRay, "handleRadianceRayMiss");
+    setExceptionProgram(PathTracingPass);
+    setRayGenerationProgram(PathTracingPass, "pathTracingPassPrograms.cu");
+    setMissProgram(RadianceRay, "pathTracingPassPrograms.cu", "handleRadianceRayMiss");
 }   /* -----  end of method PathTracingRenderer::init  ----- */
 
 
@@ -84,7 +79,7 @@ void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
     }
 
     // Launch path tracing pass.
-    generateSamples(2 * width() * height() * MAX_RAY_DEPTH);
+    generateSamples(2 * width() * height() * DEFAULT_MAX_RAY_DEPTH);
     context()["frameCount"]->setUint(m_frame);
     context()["launchSize"]->setUint(width(), height());
     context()->launch(PathTracingPass, width(), height());
@@ -98,7 +93,6 @@ void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 void PathTracingRenderer::resize(unsigned int width, unsigned int height)
 {
     Renderer::resize(width, height);
-    m_averagedOutputBuffer->setSize(width, height);
 }   /* -----  end of method PathTracingRenderer::resize  ----- */
 
 

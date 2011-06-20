@@ -16,6 +16,9 @@
  * =============================================================================
  */
 
+#include    "Matte.h"
+#include    "PathTracingRenderer.h"
+
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
  *----------------------------------------------------------------------------*/
@@ -27,6 +30,7 @@
 #include    "global.h"
 #include    "sampler.h"
 #include    "utility.h"
+#include    "Light.h"
 
 /*----------------------------------------------------------------------------
  *  namespace
@@ -36,24 +40,24 @@ using namespace MaoPPM;
 
 
 
-rtBuffer<float,       1>  sampleList;
-
-rtDeclareVariable(float,    rayEpsilon, , );
-rtDeclareVariable(rtObject, rootObject, , );
-
-rtDeclareVariable(Ray  , currentRay, rtCurrentRay          , );
-rtDeclareVariable(float, tHit      , rtIntersectionDistance, );
-
-rtDeclareVariable(RadianceRayPayload, radianceRayPayload, rtPayload, );
-rtDeclareVariable(ShadowRayPayload  , shadowRayPayload  , rtPayload, );
-
 rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
+rtBuffer<char,  1>  heap;
+rtBuffer<Light, 1>  lightList;
+rtBuffer<float, 1>  sampleList;
+
+rtDeclareVariable(rtObject, rootObject, , );
 rtDeclareVariable(float3, geometricNormal, attribute geometric_normal, ); 
 rtDeclareVariable(float3, shadingNormal  , attribute shading_normal  , ); 
 
-rtDeclareVariable(float3, Kd, , );
+rtDeclareVariable(float , rayEpsilon ,                       , );
+rtDeclareVariable(Ray   , currentRay , rtCurrentRay          , );
+rtDeclareVariable(float , tHit       , rtIntersectionDistance, );
+rtDeclareVariable(PathTracingRenderer::RadianceRayPayload, radianceRayPayload, rtPayload, );
+rtDeclareVariable(PathTracingRenderer::ShadowRayPayload  , shadowRayPayload  , rtPayload, );
+
+rtDeclareVariable(HeapIndex, materialIndex, , );
 
 
 
@@ -80,20 +84,22 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     float3 normalizedShadowRayDirection = normalize(shadowRayDirection);
     float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
     float distance = sqrtf(distanceSquared);
-    Ray ray(hitPoint, normalizedShadowRayDirection, ShadowRay, rayEpsilon, distance-rayEpsilon);
+    Ray ray(hitPoint, normalizedShadowRayDirection, PathTracingRenderer::ShadowRay, rayEpsilon, distance-rayEpsilon);
 
-    ShadowRayPayload shadowRayPayload;
+    PathTracingRenderer::ShadowRayPayload shadowRayPayload;
     shadowRayPayload.attenuation = 1.0f;
     rtTrace(rootObject, ray, shadowRayPayload);
 
+    Matte & material = reinterpret_cast<Matte &>(heap[materialIndex]);
+
     float3 radiance = shadowRayPayload.attenuation *                // visibility
-        pairwiseMul(light.flux, Kd) *                               // BRDF
+        pairwiseMul(light.flux, material.m_kd) *                    // BRDF
         fmaxf(0.0f, dot(ffnormal, normalizedShadowRayDirection)) /  // cosine term
         (4.0f * M_PIf * distanceSquared);                           // solid angle and area
 
-    RadianceRayPayload & payload = radianceRayPayload;
+    PathTracingRenderer::RadianceRayPayload & payload = radianceRayPayload;
     // check if there're enough photons or the ray depth is too deep
-    if (payload.depth >= MAX_RAY_DEPTH)
+    if (payload.depth >= DEFAULT_MAX_RAY_DEPTH)
         return;
     ++payload.depth;
 
@@ -112,12 +118,12 @@ RT_PROGRAM void handleRadianceRayClosestHit()
     // Tweak sample according to cosine term.
     sample.x = asinf(sample.x * 2.0f - 1.0f) / M_PIf + 0.5f;
     sample.y = asinf(sample.y * 2.0f - 1.0f) / M_PIf + 0.5f;
-    float3 newDirection = sampleHemisphereUniformly(sample);
-    newDirection = newDirection.x*U + newDirection.y*V + newDirection.z*W;
+    float3 wi = sampleHemisphereUniformly(sample);
+    wi = wi.x*U + wi.y*V + wi.z*W;
 
-    Ray newRay(hitPoint, newDirection, RadianceRay, rayEpsilon);
+    Ray newRay(hitPoint, wi, PathTracingRenderer::RadianceRay, rayEpsilon);
     rtTrace(rootObject, newRay, payload);
-    payload.radiance  = pairwiseMul(Kd, payload.radiance);
+    payload.radiance  = pairwiseMul(material.m_kd, payload.radiance);
     payload.radiance += radiance;
 }   /* -----  end of function handleRadianceRayClosestHit  ----- */
 

@@ -6,25 +6,21 @@
  *    Description:  
  *
  *        Version:  1.0
- *        Created:  04/13/2011 08:15:50 PM
+ *        Created:  2011-04-13 20:15:50
  *
- *         Author:  YOUR NAME (), 
- *        Company:  
+ *         Author:  Chun-Wei Huang (LittleCVR), 
+ *        Company:  Communication & Multimedia Laboratory,
+ *                  Department of Computer Science & Information Engineering,
+ *                  National Taiwan University
  *
  * =====================================================================================
  */
 
-#ifndef PARAMETER_VECTOR_H
-#define PARAMETER_VECTOR_H
-
-
-
-
+#ifndef MAOPPM_CORE_PARAMETER_VECTOR_H
+#define MAOPPM_CORE_PARAMETER_VECTOR_H
 
 #include    <cstdlib>
 #include    <cstring>
-
-
 
 
 
@@ -99,6 +95,4 @@ typedef struct ParameterVector {
     }
 } ParameterVector ;
 
-
-
-#endif  /* -----  not PARAMETER_VECTOR_H  ----- */
+#endif  /* -----  #ifndef MAOPPM_CORE_PARAMETER_VECTOR_H  ----- */

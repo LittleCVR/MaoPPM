@@ -26,6 +26,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  namespace
@@ -38,8 +39,8 @@ using namespace MaoPPM;
 /*----------------------------------------------------------------------------
  *  buffers
  *----------------------------------------------------------------------------*/
-rtBuffer<float4,        2>      outputBuffer;
-rtBuffer<PixelSample,   2>      pixelSampleList;
+rtBuffer<float4,                   2>      outputBuffer;
+rtBuffer<PPMRenderer::PixelSample, 2>      pixelSampleList;
 
 /*----------------------------------------------------------------------------
  *  variables
@@ -54,7 +55,7 @@ rtDeclareVariable(float3, cameraW       , , );
 
 rtDeclareVariable(Ray  , currentRay, rtCurrentRay          , );
 rtDeclareVariable(float, tHit      , rtIntersectionDistance, );
-rtDeclareVariable(PixelSamplingRayPayload,  currentRayPayload,  rtPayload, );
+rtDeclareVariable(PPMRenderer::PixelSamplingRayPayload,  currentRayPayload,  rtPayload, );
 
 rtDeclareVariable(uint2 ,   launchIndex    ,    rtLaunchIndex, );
 rtDeclareVariable(float3,   geometricNormal,    attribute geometric_normal, ); 
@@ -71,7 +72,7 @@ rtDeclareVariable(float3,   shadingNormal  ,    attribute shading_normal  , );
 RT_PROGRAM void generateRay()
 {
     // clear previous buffer
-    PixelSample & pixelSample = pixelSampleList[launchIndex];
+    PPMRenderer::PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.flux          = make_float3(0.0f);
     pixelSample.flags         = 0u;
     pixelSample.nPhotons      = 0u;
@@ -84,8 +85,8 @@ RT_PROGRAM void generateRay()
     float2 cameraRayDirection = (make_float2(launchIndex) + sample) / screenSize * 2.0f - 1.0f;
     float3 worldRayDirection = normalize(cameraRayDirection.x*cameraU + cameraRayDirection.y*cameraV + cameraW);
 
-    Ray ray(cameraPosition, worldRayDirection, PixelSamplingRay, rayEpsilon);
-    PixelSamplingRayPayload payload;
+    Ray ray(cameraPosition, worldRayDirection, PPMRenderer::PixelSamplingRay, rayEpsilon);
+    PPMRenderer::PixelSamplingRayPayload payload;
     payload.attenuation = 1.0f;
     rtTrace(rootObject, ray, payload);
 }   /* -----  end of function generateRay  ----- */

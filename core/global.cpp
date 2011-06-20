@@ -1,5 +1,5 @@
 /*
- * =====================================================================================
+ * =============================================================================
  *
  *       Filename:  global.cpp
  *
@@ -13,50 +13,25 @@
  *                  Department of Computer Science & Information Engineering,
  *                  National Taiwan University
  *
- * =====================================================================================
+ * =============================================================================
  */
 
+#include    "global.h"
 
-
-
-
-/* #####   HEADER FILE INCLUDES   ################################################### */
-
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  header files from std C/C++
- *-----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 #include    <cstdarg>
 #include    <cstdio>
 #include    <cstdlib>
 
-/*-----------------------------------------------------------------------------
- *  header files of our own
- *-----------------------------------------------------------------------------*/
-#include    "global.h"
-
-/*-----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
  *  namespace
- *-----------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 using namespace std;
 using namespace MaoPPM;
 
 
-
-
-
-/* #####   MACROS  -  LOCAL TO THIS SOURCE FILE   ################################### */
-
-/* #####   TYPE DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ######################### */
-
-/* #####   DATA TYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   VARIABLES  -  LOCAL TO THIS SOURCE FILE   ################################ */
-
-/* #####   PROTOTYPES  -  LOCAL TO THIS SOURCE FILE   ############################### */
-
-/* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ############################ */
-
-/* #####   FUNCTION DEFINITIONS  -  LOCAL TO THIS SOURCE FILE   ##################### */
 
 void MaoPPM::fatal(const char * message, ... )
 {
@@ -79,7 +54,7 @@ void MaoPPM::critical(const char * message, ... )
 
 
 
-#ifdef DEBUG
+#ifndef NDEBUG
 void MaoPPM::warning(const char * message, ... )
 {
     va_list arguments;
@@ -91,7 +66,7 @@ void MaoPPM::warning(const char * message, ... )
 
 
 
-#ifdef DEBUG
+#ifndef NDEBUG
 void MaoPPM::debug(const char * message, ... )
 {
     va_list arguments;
