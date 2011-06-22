@@ -34,8 +34,9 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "Scene.h"
-#include    "PathTracingRenderer.h"
+//#include    "PathTracingRenderer.h"
 //#include    "PPMRenderer.h"
+#include    "IGPPMRenderer.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -65,12 +66,8 @@ System::System(int argc, char ** argv) :
 
     // Allocate space for Scene and Renderer.
     m_scene = new Scene;
-//    if (!m_renderer)
-//        m_renderer = new PPMRenderer(m_scene);
-//    else
-//        m_renderer->setScene(m_scene);
     if (!m_renderer)
-        m_renderer = new PathTracingRenderer(m_scene);
+        m_renderer = new IGPPMRenderer(m_scene);
     else
         m_renderer->setScene(m_scene);
 }   /* -----  end of System::System  ----- */
@@ -125,10 +122,12 @@ void System::parseArguments(int argc, char ** argv)
             if (++i < argc) {
                 string rendererType(argv[i]);
                 cerr << "Specified renderer: " << rendererType << "." << endl;
-                if (rendererType == "PathTracing")
-                    m_renderer = new PathTracingRenderer;
+//                if (rendererType == "PathTracing")
+//                    m_renderer = new PathTracingRenderer;
 //                else if (rendererType == "PPM")
 //                    m_renderer = new PPMRenderer;
+                if (rendererType == "IGPPM")
+                    m_renderer = new IGPPMRenderer;
                 else {
                     cerr << "Unknown renderer: " << rendererType << endl;
                     printUsageAndExit(argv[0]);
@@ -153,9 +152,9 @@ void System::printUsageAndExit(const char * fileName, bool doExit)
     std::cerr
         << "Usage  : " << fileName << " [options]" << std::endl
         << "App options:" << std::endl
-        << "  -h | --help             Print this usage message"                                                         << std::endl
-        << "  -t | --timeout <sec>    Seconds before stopping rendering. Set to 0 for no stopping."                     << std::endl
-        << "  -r | --renderer <type>  Specify renderer, available renderers are: PathTracing, PPM. PPM is the default." << std::endl
+        << "  -h | --help             Print this usage message"                                                                  << std::endl
+        << "  -t | --timeout <sec>    Seconds before stopping rendering. Set to 0 for no stopping."                              << std::endl
+        << "  -r | --renderer <type>  Specify renderer, available renderers are: PathTracing, PPM, IGPPM. IGPPM is the default." << std::endl
         << std::endl;
 
     GLUTDisplay::printUsage();

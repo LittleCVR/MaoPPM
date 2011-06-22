@@ -55,12 +55,8 @@ Renderer::~Renderer()
 
 void Renderer::init()
 {
-#ifndef NDEBUG
-    initDebug();
-#endif  /* -----  end of #ifndef NDEBUG  ----- */
-
     // create output buffer
-    m_outputBuffer = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, m_width, m_height);
+    m_outputBuffer = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, width(), height());
     context()["outputBuffer"]->set(m_outputBuffer);
 
     // initialize sample buffer
@@ -68,33 +64,6 @@ void Renderer::init()
     m_sampleList->setSize(0);
     context()["sampleList"]->set(m_sampleList);
 }   /* -----  end of method PPMRenderer::initPPMRenderer  ----- */
-
-
-
-#ifndef NDEBUG
-void Renderer::initDebug()
-{
-    // Get device compute capability and determine if we can enable the
-    // rtPrintf functionality. Because rtPrintf cannot be enabled for devices
-    // that have compute capability less than SM11.
-    int2 computeCapability;
-
-    RTresult rc = rtDeviceGetAttribute(0,                 // first device
-            RT_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY,
-            sizeof(computeCapability),
-            reinterpret_cast<void *>(&computeCapability));
-    if (rc != RT_SUCCESS)
-        throw Exception::makeException(rc, context()->get());
-
-    cerr << "Compute capability is SM" << computeCapability.x << computeCapability.y << ", ";
-    if (computeCapability.x < 1 || computeCapability.y < 1)
-        cerr << "debug mode cannot be enabled." << endl;
-    else {
-        cerr << "debug mode enabled." << endl;
-        context()->setPrintEnabled(true);
-    }
-}   /* -----  end of method Renderer::initDebug  ----- */
-#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
 
 
@@ -107,8 +76,10 @@ void Renderer::generateSamples(const uint nSamples)
     RTsize N = 0;
     sampleList->getSize(N);
     // Expande if necessary.
-    if (N < nSamples)
+    if (N < nSamples) {
         sampleList->setSize(nSamples);
+        debug("\033[01;33msampleList\033[00m expanded, size = \033[01;31m%u\033[00m.\n", sizeof(float) * nSamples);
+    }
 
     // Generate samples.
     float * sampleListPtr = static_cast<float *>(sampleList->map());
@@ -128,8 +99,11 @@ Context Renderer::context()
 
 void Renderer::resize(unsigned int width, unsigned int height)
 {
+    debug("window resized to: \033[01;31m%u\033[00m x \033[01;31m%u\033[00m.\n", width, height);
     m_width = width; m_height = height;
-    m_outputBuffer->setSize(m_width, m_height);
+    debug("\033[01;33moutputBuffer\033[00m resized to: \033[01;31m%u\033[00m.\n",
+            sizeof(float4) * width * height);
+    m_outputBuffer->setSize(width, height);
 }   /* -----  end of method Renderer::resize  ----- */
 
 

@@ -51,19 +51,9 @@ class Renderer {
         inline Scene *        scene() const { return m_scene; }
         void                  setScene(Scene * scene);
 
-        virtual unsigned int  nPasses() const = 0;
-        virtual unsigned int  nRayTypes() const = 0;
-        virtual void setMaterialPrograms(const std::string & name,
-                optix::Material & material) = 0;
-
         virtual void          init();
         virtual void          render(const Scene::RayGenCameraData & cameraData) = 0;
         virtual void          resize(unsigned int width, unsigned int height);
-
-#ifndef NDEBUG
-    private:    // methods
-        void                  initDebug();
-#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
     protected:  // methods
         /*

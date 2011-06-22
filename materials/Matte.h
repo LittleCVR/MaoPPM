@@ -44,7 +44,7 @@ class Matte : public Material {
         Matte(optix::float3 kd) : m_kd(kd) { /* EMPTY */ }
         ~Matte() { /* EMPTY */ }
 
-        __device__ HeapIndex BSDF() const
+        __device__ Index BSDF() const
         {
             return 0;
         }

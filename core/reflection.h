@@ -16,8 +16,8 @@
  * =====================================================================================
  */
 
-#ifndef MAOPPM_REFLECTION_H
-#define MAOPPM_REFLECTION_H
+#ifndef IGPPM_CORE_REFLECTION_H
+#define IGPPM_CORE_REFLECTION_H
 
 /*-----------------------------------------------------------------------------
  *  header files from OptiX
@@ -27,7 +27,9 @@
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
-#include    "sampler.h"
+#include    "global.h"
+#include    "montecarlo.h"
+#include    "DifferentialGeometry.h"
 
 
 
@@ -41,15 +43,18 @@ namespace MaoPPM {
 class BxDF {
     public:
         enum Type {
-            Reflection      = 1 << 0,
-            Transmission    = 1 << 1,
-            Diffuse         = 1 << 2,
-            Glossy          = 1 << 3,
-            Specular        = 1 << 4,
+            // basic types,
+            Reflection      = 1 << 31,
+            Transmission    = 1 << 30,
+            Diffuse         = 1 << 29,
+            Glossy          = 1 << 28,
+            Specular        = 1 << 27,
             AllType         = Diffuse | Glossy | Specular,
             AllReflection   = Reflection | AllType,
             AllTransmission = Transmission | AllType,
-            All             = AllReflection | AllTransmission
+            All             = AllReflection | AllTransmission,
+            // BxDF types
+            Lambertian      = 1 << 0,
         };  /* -----  end of enum BxDF::Type  ----- */
 
     public:
@@ -64,7 +69,7 @@ class BxDF {
         __device__ optix::float3 f( \
                 const optix::float3 & wo, const optix::float3 & wi) const \
         { \
-            return make_float3(0.0f); \
+            return optix::make_float3(0.0f); \
         }
         BxDF_f
 
@@ -81,10 +86,7 @@ class BxDF {
                 const optix::float3 & wo, optix::float3 * wi, \
                 const optix::float2 & sample, float * prob) const \
         { \
-            optix::float2 s = sample; \
-            s.x = asinf(s.x * 2.0f - 1.0f) / M_PIf + 0.5f; \
-            s.y = asinf(s.y * 2.0f - 1.0f) / M_PIf + 0.5f; \
-            *wi = sampleHemisphereUniformly(s); \
+            *wi = sampleCosineWeightedHemisphere(sample); \
             if (prob != NULL) \
                 *prob = probability(wo, *wi); \
             return f(wo, *wi); \
@@ -92,13 +94,13 @@ class BxDF {
         BxDF_sampleF
 
     protected:  // methods
-        __device__ float cosTheta(
+        __device__ __inline__ float cosTheta(
                 const optix::float3 & w) const
         {
             return w.z;
         }
 
-        __device__ bool sameHemisphere(
+        __device__ __inline__ bool sameHemisphere(
                 const optix::float3 & wo, const optix::float3 & wi) const
         {
             return wo.z * wi.z > 0.0f;
@@ -119,13 +121,15 @@ class BxDF {
 class Lambertian : public BxDF {
     public:
         __device__ Lambertian(const optix::float3 & reflectance) :
-            BxDF(BxDF::Type(Reflection | Diffuse)), m_reflectance(reflectance) { /* EMPTY */ }
+            BxDF(BxDF::Type(BxDF::Lambertian | Reflection | Diffuse)),
+            m_reflectance(reflectance) { /* EMPTY */ }
+
         __device__ ~Lambertian() { /* EMPTY */ }
 
         __device__ optix::float3 f(
                 const optix::float3 & wo, const optix::float3 & wi) const
         {
-            return m_reflectance * M_1_PIf;
+            return m_reflectance * (1.0f / M_PIf);
         }
 
         BxDF_probability
@@ -145,14 +149,63 @@ class Lambertian : public BxDF {
  */
 class BSDF {
     public:
-        __device__ BSDF() { /* EMPTY */ }
-        __device__ ~BSDF() { /* EMPTY */ }
+        static const unsigned int  MAX_N_BXDFS    = 2;
+        // If added some new BxDF in the future,
+        // change this to the biggest BxDF class.
+        static const unsigned int  MAX_BXDF_SIZE  = sizeof(Lambertian);
 
-    private:
-        HeapIndex  m_nBxDFs;
-        HeapIndex  m_BxDFList[4];
+    public:
+        __device__ __inline__ BSDF(
+                const DifferentialGeometry & dgShading,
+                const optix::float3 & geometricNormal, const float eta = 1.0f)
+//            : m_dgShading(dgShading), m_eta(eta)
+        {
+//            m_gn = geometricNormal;
+//            m_nn = dgShading.normal;
+            m_nBxDFs = 0;
+        }
+
+        __device__ __inline__ ~BSDF() { /* EMPTY */ }
+
+        __device__ __inline__ void * bxdfList()
+        {
+            return reinterpret_cast<void *>(m_bxdfList);
+        }
+
+        __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
+
+    public:
+        __device__ __inline__ optix::float3 f(const optix::float3 & wo,
+                const optix::float3 & wi, BxDF::Type type = BxDF::All) const
+        {
+            Index index = 0;
+            optix::float3 totalF = optix::make_float3(0.0f);
+            for (unsigned int i = 0; i < m_nBxDFs; i++) {
+                const BxDF & bxdf = reinterpret_cast<const BxDF &>(m_bxdfList[index]);
+                if (!(bxdf.type() & type))
+                    continue;
+                if (bxdf.type() & BxDF::Lambertian) {
+                    const Lambertian & b = reinterpret_cast<const Lambertian &>(bxdf);
+                    totalF += b.f(wo, wi);
+                    index += sizeof(Lambertian);
+                }
+            }
+            return totalF;
+        }
+
+//        __device__ __inline__ DifferentialGeometry * dgShading()
+//        {
+//            return &m_dgShading;
+//        }
+
+//    private:
+//        DifferentialGeometry  m_dgShading;
+//        optix::float3         m_gn, m_nn;
+//        float                 m_eta;
+        unsigned int          m_nBxDFs;
+        char                  m_bxdfList [MAX_N_BXDFS * sizeof(Lambertian)];
 };  /* -----  end of class BSDF  ----- */
 
 }   /* -----  end of namespace MaoPPM  ----- */
 
-#endif  /* -----  #ifndef MAOPPM_REFLECTION_H  ----- */
+#endif  /* -----  #ifndef IGPPM_CORE_REFLECTION_H  ----- */

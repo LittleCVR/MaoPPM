@@ -67,7 +67,7 @@ class Scene : public SampleScene {
          *               of copied data on the heap.
          *----------------------------------------------------------------------
          */
-        HeapIndex           copyToHeap(void * data, unsigned int size);
+        Index               copyToHeap(void * data, unsigned int size);
 
         /*--------------------------------------------------------------------
          *  Methods from base class.
@@ -78,6 +78,11 @@ class Scene : public SampleScene {
         void                initScene(InitialCameraData & cameraData);
         void                trace(const RayGenCameraData & cameraData);
 
+#ifndef NDEBUG
+    private:    // methods
+        void                  initDebug();
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
+
     private:    // attributes
         Renderer *              m_renderer;
         InitialCameraData       m_initialCameraData;
@@ -85,7 +90,7 @@ class Scene : public SampleScene {
         optix::GeometryGroup    m_rootObject;
         optix::Buffer           m_lightList;
         optix::Buffer           m_heap;
-        HeapIndex               m_heapPointer;
+        Index                   m_heapPointer;
 };  /* -----  end of class Scene  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

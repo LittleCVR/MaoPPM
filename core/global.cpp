@@ -71,7 +71,7 @@ void MaoPPM::debug(const char * message, ... )
 {
     va_list arguments;
     va_start(arguments, message);
-    fprintf(stderr, "debug: ");
+    fprintf(stderr, "\033[01;32mdebug: \033[00m");
     vfprintf(stderr, message, arguments);
 }
 #endif

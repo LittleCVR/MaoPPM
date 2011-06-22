@@ -26,6 +26,7 @@
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
+#include    "payload.h"
 #include    "Light.h"
 #include    "Renderer.h"
 #include    "SceneBuilder.h"
@@ -85,7 +86,7 @@ void Scene::cleanUp()
 
 
 
-HeapIndex Scene::copyToHeap(void * data, unsigned int size)
+Index Scene::copyToHeap(void * data, unsigned int size)
 {
     do {
         // Check heap size.
@@ -99,6 +100,7 @@ HeapIndex Scene::copyToHeap(void * data, unsigned int size)
             void * src = m_heap->map();
             memcpy(dst, src, heapSize);
             m_heap->unmap();
+            debug("\033[01;33mheap\033[00m expanded, size = \033[01;31m%u\033[00m.\n", 2 * heapSize);
             m_heap->setSize(2 * heapSize);
             src = m_heap->map();
             memcpy(src, dst, heapSize);
@@ -127,12 +129,52 @@ void Scene::doResize(unsigned int width, unsigned int height)
 
 
 
+#ifndef NDEBUG
+void Scene::initDebug()
+{
+    // Get device compute capability and determine if we can enable the
+    // rtPrintf functionality. Because rtPrintf cannot be enabled for devices
+    // that have compute capability less than SM11.
+    int2 computeCapability;
+
+    RTresult rc = rtDeviceGetAttribute(0,                 // first device
+            RT_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY,
+            sizeof(computeCapability),
+            reinterpret_cast<void *>(&computeCapability));
+    if (rc != RT_SUCCESS)
+        throw Exception::makeException(rc, context()->get());
+
+    if (computeCapability.x < 1 || computeCapability.y < 1)
+        debug("Compute capability is SM %d.%d, debug mode cannot be enabled.\n",
+                computeCapability.x, computeCapability.y);
+    else {
+        debug("Compute capability is SM %d.%d, debug mode enabled.\n",
+                computeCapability.x, computeCapability.y);
+        context()->setPrintEnabled(true);
+    }
+
+    // some useful messages
+    debug("sizeof(NormalRayPayload)     = \033[01;31m%4d\033[00m.\n", sizeof(NormalRayPayload));
+    debug("sizeof(ShadowRayPayload)     = \033[01;31m%4d\033[00m.\n", sizeof(ShadowRayPayload));
+    debug("sizeof(DifferentialGeometry) = \033[01;31m%4d\033[00m.\n", sizeof(DifferentialGeometry));
+    debug("sizeof(Intersection)         = \033[01;31m%4d\033[00m.\n", sizeof(Intersection));
+    debug("sizeof(BSDF)                 = \033[01;31m%4d\033[00m.\n", sizeof(BSDF));
+}   /* -----  end of method Scene::initDebug  ----- */
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
+
+
+
 void Scene::initScene(InitialCameraData & cameraData)
 {
-    context()->setStackSize(DEFAULT_STACK_SIZE);
-    context()->setRayTypeCount(m_renderer->nRayTypes());
-    context()->setEntryPointCount(m_renderer->nPasses());
+#ifndef NDEBUG
+    initDebug();
+#endif  /* -----  end of #ifndef NDEBUG  ----- */
 
+    debug("Set stack size to %u.\n", DEFAULT_STACK_SIZE);
+    context()->setStackSize(DEFAULT_STACK_SIZE);
+    context()->setRayTypeCount(N_RAY_TYPES);
+
+    debug("Default ray epsilon is %f.\n", DEFAULT_RAY_EPSILON);
     context()["rayEpsilon"]->setFloat(DEFAULT_RAY_EPSILON);
 
     // Initialize heap.

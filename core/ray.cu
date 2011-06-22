@@ -1,12 +1,12 @@
 /*
  * =============================================================================
  *
- *       Filename:  Material.h
+ *       Filename:  ray.cu
  *
  *    Description:  
  *
  *        Version:  1.0
- *        Created:  2011-06-20 17:49:44
+ *        Created:  2011-06-22 12:22:38
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
@@ -16,11 +16,8 @@
  * =============================================================================
  */
 
-#ifndef MAOPPM_CORE_MATERIAL_H
-#define MAOPPM_CORE_MATERIAL_H
-
 /*----------------------------------------------------------------------------
- *  header files from OptiX
+ *  Header files from OptiX
  *----------------------------------------------------------------------------*/
 #include    <optix_world.h>
 
@@ -28,28 +25,28 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "payload.h"
+
+/*----------------------------------------------------------------------------
+ *  namespace
+ *----------------------------------------------------------------------------*/
+using namespace optix;
+using namespace MaoPPM;
 
 
 
-namespace MaoPPM {
-/*
- * =============================================================================
- *        Class:  Material
+rtDeclareVariable(NormalRayPayload, normalRayPayload, rtPayload, );
+rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
+
+
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  handleNormalRayMiss
  *  Description:  
  * =============================================================================
  */
-class Material {
-    public:
-        Material() { /* EMPTY */ }
-        ~Material() { /* EMPTY */ }
-
-        #define Material_BSDF \
-        __device__ Index BSDF() const \
-        { \
-            return 0; \
-        }
-        Material_BSDF
-};  /* -----  end of class Material  ----- */
-}   /* -----  end of namespace MaoPPM  ----- */
-
-#endif  /* -----  #ifndef MAOPPM_CORE_MATERIAL_H  ----- */
+RT_PROGRAM void handleNormalRayMiss()
+{
+    normalRayPayload.isHit = false;
+}   /* -----  end of function handleNormalRayMiss  ----- */

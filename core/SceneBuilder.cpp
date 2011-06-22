@@ -27,6 +27,7 @@
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
+#include    "payload.h"
 #include    "Light.h"
 #include    "Matte.h"
 #include    "Renderer.h"
@@ -195,13 +196,17 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
             cerr << "Material \"matte\" must contains color Kd." << endl;
             exit(EXIT_FAILURE);
         }
-        float3 Kd = make_float3(
-                static_cast<float *>(colorVector->data)[0],
-                static_cast<float *>(colorVector->data)[1],
-                static_cast<float *>(colorVector->data)[2]);
-        Matte matte(Kd);
-        HeapIndex index = m_scene->copyToHeap(&matte, sizeof(matte));
+        // material
+        float * color = static_cast<float *>(colorVector->data);
+        Matte matte(make_float3(color[0], color[1], color[2]));
+        Index index = m_scene->copyToHeap(&matte, sizeof(matte));
         material["materialIndex"]->setUserData(sizeof(index), &index);
+        // program
+        std::string ptxPath = m_scene->ptxpath("MaoPPM", "Matte.cu");
+        Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
+        material->setClosestHitProgram(NormalRay, program);
+        Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
+        material->setAnyHitProgram(ShadowRay, program2);
     }
     else if (strcmp(type, "plastic") == 0) {
         ParameterVector * Kd = findByTypeAndName("color", "Kd", *parameterVector);
@@ -218,7 +223,6 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
                     static_cast<float *>(Ks->data)[2]));
         material["exponent"]->setFloat(1.0f / static_cast<float *>(roughness->data)[0]);
     }
-    m_scene->m_renderer->setMaterialPrograms(type, material);
     m_currentState.material = material;
 
     // delete

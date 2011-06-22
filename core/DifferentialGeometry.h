@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  geometry.h
+ *       Filename:  DifferentialGeometry.h
  *
  *    Description:  
  *
@@ -16,22 +16,26 @@
  * =====================================================================================
  */
 
-#ifndef MAOPPM_CORE_GEOMETRY_H
-#define MAOPPM_CORE_GEOMETRY_H
+#ifndef MAOPPM_CORE_DIFFERENTIAL_GEOMETRY_H
+#define MAOPPM_CORE_DIFFERENTIAL_GEOMETRY_H
 
 /*-----------------------------------------------------------------------------
  *  header files from OptiX
  *-----------------------------------------------------------------------------*/
 #include    <optix_world.h>
 
+/*----------------------------------------------------------------------------
+ *  header files of our own
+ *----------------------------------------------------------------------------*/
+#include    "global.h"
+
 
 
 namespace MaoPPM {
-class DifferentialGeometry {
-    public:
-        optix::float3   point;
-        optix::float3   normal;
-};  /* -----  end of class DifferentialGeometry  ----- */
+typedef struct DifferentialGeometry {
+    optix::float3  point;
+    optix::float3  normal;
+} DifferentialGeometry ;  /* -----  end of struct DifferentialGeometry  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
-#endif  /* -----  #ifndef MAOPPM_CORE_GEOMETRY_H  ----- */
+#endif  /* -----  #ifndef MAOPPM_CORE_DIFFERENTIAL_GEOMETRY_H  ----- */

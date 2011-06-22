@@ -17,8 +17,8 @@
  * =============================================================================
  */
 
-#ifndef MAOPPM_CORE_GLOBAL_H
-#define MAOPPM_CORE_GLOBAL_H
+#ifndef IGPPM_CORE_GLOBAL_H
+#define IGPPM_CORE_GLOBAL_H
 
 namespace MaoPPM {
 
@@ -30,17 +30,21 @@ static const unsigned int  DEFAULT_WIDTH          = 512;
 static const unsigned int  DEFAULT_HEIGHT         = 512;
 static const float         DEFAULT_TIMEOUT        = 0.0f;    // forever
 static const unsigned int  DEFAULT_HEAP_SIZE      = 32;      // 32 bytes
-static const float         DEFAULT_RAY_EPSILON    = 1.0e-3;
+static const float         DEFAULT_RAY_EPSILON    = 1.0e-2;
 static const unsigned int  DEFAULT_MAX_RAY_DEPTH  = 4;
 
 /*----------------------------------------------------------------------------
  *  typedefs
  *----------------------------------------------------------------------------*/
-typedef unsigned int HeapIndex;
+typedef unsigned int Index;
 
 /*----------------------------------------------------------------------------
  *  class forward declarations
  *----------------------------------------------------------------------------*/
+class BxDF;
+class BSDF;
+class DifferentialGeometry;
+class Intersection;
 class Renderer;
 class Scene;
 class SceneBuilder;
@@ -70,4 +74,4 @@ void critical (const char * message, ... );
 
 }   /* ----------  end of namespace MaoPPM  ---------- */
 
-#endif  /* ----- #ifndef MAOPPM_CORE_GLOBAL_H  ----- */
+#endif  /* ----- #ifndef IGPPM_CORE_GLOBAL_H  ----- */
