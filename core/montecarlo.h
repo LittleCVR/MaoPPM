@@ -64,7 +64,7 @@ __device__ __inline__ optix::float3 sampleCosineWeightedHemisphere(const optix::
 __device__ __inline__ optix::float3 sampleUniformHemisphere(const optix::float2 & sample)
 {
     float z = sample.x;
-    float r = sqrtf(fmaxf(0.0f, 1.0f - z*z));
+    float r = sqrtf(optix::fmaxf(0.0f, 1.0f - z*z));
     float phi = 2 * M_PIf * sample.y;
     float x = r * cosf(phi);
     float y = r * sinf(phi);

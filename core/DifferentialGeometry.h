@@ -32,11 +32,13 @@
 
 
 namespace MaoPPM {
-typedef struct DifferentialGeometry {
-    optix::float3  point;
-    optix::float3  normal;
-    optix::float3  dpdu, dpdv;
-} DifferentialGeometry ;  /* -----  end of struct DifferentialGeometry  ----- */
+class DifferentialGeometry {
+    public:
+        optix::float3  point;
+        optix::float3  normal;
+        optix::float3  dpdu;
+        optix::float3  dpdv;
+};  /* -----  end of class DifferentialGeometry  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
 #endif  /* -----  #ifndef MAOPPM_CORE_DIFFERENTIAL_GEOMETRY_H  ----- */

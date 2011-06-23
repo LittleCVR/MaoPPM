@@ -112,10 +112,10 @@ void System::parseArguments(int argc, char ** argv)
         // -S or --no-srgb
         else if (arg == "--no-srgb" || arg == "-S") {
             if (++i < argc) {
-                if (strcasecmp(argv[i], "true") == 0) {
+                if (strcmp(argv[i], "true") == 0) {
                     m_useSRGB = true;
                     cerr << "Set use SRGB color space." << endl;
-                } else if (strcasecmp(argv[i], "false") == 0) {
+                } else if (strcmp(argv[i], "false") == 0) {
                     m_useSRGB = false;
                     cerr << "Don't use SRGB color space." << endl;
                 } else {
