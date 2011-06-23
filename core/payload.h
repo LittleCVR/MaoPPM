@@ -38,14 +38,25 @@ enum RayType {
                 // And the material does not have to return a proper BSDF.
 };
 
-typedef struct NormalRayPayload {
-    unsigned int  isHit;
-    Intersection  intersection;
-} NormalRayPayload ;
+class RayPayload {
+    public:
+        unsigned int  isHit;
 
-typedef struct ShadowRayPayload {
-    unsigned int  isHit;
-} ShadowRayPayload ;
+    public:
+        __device__ __inline__ void reset()
+        {
+            isHit = false;
+        }
+};
+
+class NormalRayPayload : public RayPayload {
+    public:
+        Intersection  intersection;
+};
+
+class ShadowRayPayload : public RayPayload {
+    /* EMPTY */
+};
 
 }   /* ----------  end of namespace MaoPPM  ---------- */
 

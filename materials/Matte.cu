@@ -48,8 +48,7 @@ rtBuffer<char,  1>  heap;
 rtBuffer<float, 1>  sampleList;
 
 rtDeclareVariable(rtObject, rootObject, , );
-rtDeclareVariable(float3, geometricNormal, attribute geometric_normal, ); 
-rtDeclareVariable(float3, shadingNormal  , attribute shading_normal  , ); 
+rtDeclareVariable(DifferentialGeometry, geometricDG, attribute differential_geometry, ); 
 
 rtDeclareVariable(float , rayEpsilon ,                       , );
 rtDeclareVariable(Ray   , currentRay , rtCurrentRay          , );
@@ -69,61 +68,48 @@ rtDeclareVariable(Index, materialIndex, , );
  */
 RT_PROGRAM void handleNormalRayClosestHit()
 {
-    /*TODO*/
-    float3 wo = currentRay.direction;
-    float3 worldShadingNormal   = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, shadingNormal  ));
-    float3 worldGeometricNormal = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, geometricNormal));
-    float3 ffnormal   = faceforward(worldShadingNormal, -wo, worldGeometricNormal);
-    float3 difference = tHit * wo;
-    float3 hitPoint   = currentRay.origin + difference;
-
     normalRayPayload.isHit = true;
-    // Intersection
+
     Intersection & intersection = normalRayPayload.intersection;
-    // differential geometry
     DifferentialGeometry * dg = intersection.dg();
-    dg->point  = hitPoint;
-    dg->normal = ffnormal;
 
-    /*TODO*/
-    // otherwise, samples a new direction
-    float3 W = normalize(ffnormal);
-    float3 U = cross(W, make_float3(0.0f, 1.0f, 0.0f));
-    if (fabsf(U.x) < 0.001f && fabsf(U.y) < 0.001f && fabsf(U.z) < 0.001f)
-        U = cross(W, make_float3(1.0f, 0.0f, 0.0f));
-    U = normalize(U);
-    float3 V = cross(W, U);
+    *dg = geometricDG;
+//    if (launchIndex.x == 449 && launchIndex.y == 252) {
+//        rtPrintf("before\n");
+//        rtPrintf("point "); dump(dg->point); rtPrintf("\n");
+//        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
+//    }
+    dg->point  = rtTransformPoint(RT_OBJECT_TO_WORLD, dg->point);
+    dg->normal = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, dg->normal));
+    dg->normal = faceforward(dg->normal, -currentRay.direction, dg->normal);
+//    if (launchIndex.x == 449 && launchIndex.y == 252) {
+//        rtPrintf("after\n");
+//        rtPrintf("point "); dump(dg->point); rtPrintf("\n");
+//        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
+//    }
 
-    Matrix4x4 * worldToObject = intersection.worldToObject();
-    float * w2o = worldToObject->getData();
-    w2o[ 0] = U.x ; w2o[ 1] = V.x ; w2o[ 2] = W.x ; w2o[ 3] = 0.0f;
-    w2o[ 4] = U.y ; w2o[ 5] = V.y ; w2o[ 6] = W.y ; w2o[ 7] = 0.0f;
-    w2o[ 8] = U.z ; w2o[ 9] = V.z ; w2o[10] = W.z ; w2o[11] = 0.0f;
+    const float3 & nn = dg->normal;
+    const float3 & sn = normalize(dg->dpdu);
+    const float3 tn = cross(nn, sn);
+//    if (launchIndex.x == 449 && launchIndex.y == 252) {
+//        rtPrintf("sn "); dump(sn); rtPrintf("\n");
+//        rtPrintf("tn "); dump(tn); rtPrintf("\n");
+//        rtPrintf("nn "); dump(nn); rtPrintf("\n");
+//    }
+    float * w2o = intersection.worldToObject()->getData();
+    w2o[ 0] = sn.x; w2o[ 1] = sn.y; w2o[ 2] = sn.z; w2o[ 3] = 0.0f;
+    w2o[ 4] = tn.x; w2o[ 5] = tn.y; w2o[ 6] = tn.z; w2o[ 7] = 0.0f;
+    w2o[ 8] = nn.x; w2o[ 9] = nn.y; w2o[10] = nn.z; w2o[11] = 0.0f;
     w2o[12] = 0.0f; w2o[13] = 0.0f; w2o[14] = 0.0f; w2o[15] = 1.0f;
 
     // BSDF
-    Matte & material = reinterpret_cast<Matte &>(heap[materialIndex]);
-    DifferentialGeometry dgShading;
-    dgShading.point  = hitPoint;
-    dgShading.normal = ffnormal;
+    Matte & material = GET_MATERIAL(Matte, materialIndex);
     BSDF * bsdf = intersection.bsdf();
-    *bsdf = BSDF(dgShading, ffnormal);
+    *bsdf = BSDF(*dg, geometricDG.normal);
 
+    // BxDFs
     /*TODO*/
     bsdf->m_nBxDFs = 1;
     Lambertian * bxdf = reinterpret_cast<Lambertian *>(bsdf->bxdfList());
     *bxdf = Lambertian(material.m_kd);
 }   /* -----  end of function handleNormalRayClosestHit  ----- */
-
-
-
-/* 
- * ===  FUNCTION  ==============================================================
- *         Name:  handleShadowRayClosestHit
- *  Description:  
- * =============================================================================
- */
-RT_PROGRAM void handleShadowRayAnyHit()
-{
-    shadowRayPayload.isHit = 1;
-}   /* -----  end of function handleShadowRayAnyHit  ----- */

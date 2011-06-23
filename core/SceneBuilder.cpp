@@ -205,6 +205,7 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
         std::string ptxPath = m_scene->ptxpath("MaoPPM", "Matte.cu");
         Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
         material->setClosestHitProgram(NormalRay, program);
+        ptxPath = m_scene->ptxpath("MaoPPM", "ray.cu");
         Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
         material->setAnyHitProgram(ShadowRay, program2);
     }

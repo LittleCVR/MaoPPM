@@ -28,15 +28,15 @@
 
 namespace MaoPPM {
 
-#define GET_SAMPLES(sampleList, sampleIndex, sample) \
-    make_float2(sampleList[sampleIndex+0], sampleList[sampleIndex+1]); \
-    sampleIndex += 2;
+#define GET_MATERIAL(type, index) \
+    reinterpret_cast<type &>(heap[index])
 
-__device__ __inline__ optix::uint launchIndexOffset(
-        const optix::uint2 & launchIndex, const optix::uint2 & launchSize)
-{
-    return launchIndex.y * launchSize.x + launchIndex.x;
-}
+#define GET_2_SAMPLES(sampleList, sampleIndex) \
+    make_float2(sampleList[sampleIndex+0], sampleList[sampleIndex+1]); \
+    sampleIndex += 2
+
+#define LAUNCH_OFFSET_2D(launchIndex, launchSize) \
+    (launchIndex.y * launchSize.x + launchIndex.x)
 
 /* 
  * ===  FUNCTION  ==============================================================
@@ -49,19 +49,19 @@ __device__ __inline__ optix::float2 pairwiseMul(
         const optix::float2 & v1, const optix::float2 & v2)
 {
     return optix::make_float2(v1.x*v2.x, v1.y*v2.y);
-}   /* -----  end of function pairwiseMul  ----- */
+}
 
 __device__ __inline__ optix::float3 pairwiseMul(
         const optix::float3 & v1, const optix::float3 & v2)
 {
     return optix::make_float3(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z);
-}   /* -----  end of function pairwiseMul  ----- */
+}
 
 __device__ __inline__ optix::float4 pairwiseMul(
         const optix::float4 & v1, const optix::float4 & v2)
 {
     return optix::make_float4(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z, v1.w*v2.w);
-}   /* -----  end of function pairwiseMul  ----- */
+}
 
 /* 
  * ===  FUNCTION  ==============================================================
@@ -72,7 +72,37 @@ __device__ __inline__ optix::float4 pairwiseMul(
 __device__ __inline__ float3 transformVector(const optix::Matrix4x4 & m, const float3 & v)
 {
     return optix::make_float3(m * optix::make_float4(v, 0.0f));
-}   /* -----  end of function pairwiseMul  ----- */
+}
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  
+ *  Description:  
+ * =============================================================================
+ */
+__device__ __inline__ void createCoordinateSystem(const optix::float3 & U,
+        optix::float3 * V, optix::float3 * W)
+{
+    if (fabsf(U.x) > fabsf(U.y)) {
+        float invLen = 1.f / sqrtf(U.x*U.x + U.z*U.z);
+        *V = optix::make_float3(-U.z * invLen, 0.f, U.x * invLen);
+    } else {
+        float invLen = 1.f / sqrtf(U.y*U.y + U.z*U.z);
+        *V = optix::make_float3(0.f, U.z * invLen, -U.y * invLen);
+    }
+    *W = optix::cross(U, *V);
+}
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  
+ *  Description:  
+ * =============================================================================
+ */
+__device__ __inline__ void dump(const optix::float3 & v)
+{
+    rtPrintf("%+4.4f %+4.4f %+4.4f", v.x, v.y, v.z);
+}
 
 }   /* -----  end of namespace MaoPPM  ----- */
 

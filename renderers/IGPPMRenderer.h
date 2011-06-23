@@ -44,8 +44,8 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD                = 4;
-        static const unsigned int  DEFAULT_N_PHOTONS_PER_THREAD                  = 4;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
+        static const unsigned int  DEFAULT_N_PHOTONS_PER_THREAD    = 2;
 
     public:
         IGPPMRenderer(Scene * scene = NULL);
@@ -63,6 +63,13 @@ class IGPPMRenderer : public Renderer {
             Intersection   intersection;
             optix::float3  wo;
             optix::float3  direct;
+            optix::float3  indirect;
+            unsigned int   nImportons;
+
+            __device__ __inline__ void reset()
+            {
+                isHit = false;
+            }
         } PixelSample ;
 
         typedef struct Importon {
@@ -89,6 +96,11 @@ class IGPPMRenderer : public Renderer {
                 AxisZ  = 1 << 3
             };
             unsigned int   flags;     // for KdTree
+
+            __device__ __inline__ void init()
+            {
+                flux = optix::make_float3(0.0f);
+            }
 
             static bool positionXComparator(const Photon & photon1, const Photon & photon2)
             {

@@ -25,6 +25,8 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "utility.h"
+#include    "DifferentialGeometry.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -36,9 +38,18 @@ using namespace MaoPPM;
 
 rtBuffer<float3, 1>  vertexList;
 rtBuffer<uint3 , 1>  vertexIndexList;
-rtDeclareVariable(float3, geometricNormal,  attribute geometric_normal, ); 
-rtDeclareVariable(float3, shadingNormal  ,  attribute shading_normal  , ); 
+rtDeclareVariable(DifferentialGeometry, geometricDG, attribute differential_geometry, ); 
 rtDeclareVariable(optix::Ray, currentRay, rtCurrentRay, );
+
+
+
+__device__ __inline__ void getUVs(float uvs[3][2])
+{
+    /* TODO: use input UV array if possible */
+    uvs[0][0] = 0.0f; uvs[0][1] = 0.0f;
+    uvs[1][0] = 1.0f; uvs[1][1] = 0.0f;
+    uvs[2][0] = 1.0f; uvs[2][1] = 1.0f;
+}
 
 
 
@@ -76,18 +87,55 @@ RT_PROGRAM void intersect(int primitiveIndex)
 {
     uint3 vertexIndex = vertexIndexList[primitiveIndex];
 
-    float3 v0 = vertexList[vertexIndex.x];
-    float3 v1 = vertexList[vertexIndex.y];
-    float3 v2 = vertexList[vertexIndex.z];
+    float3 p1 = vertexList[vertexIndex.x];
+    float3 p2 = vertexList[vertexIndex.y];
+    float3 p3 = vertexList[vertexIndex.z];
+    float3 e1 = p2 - p1;
+    float3 e2 = p3 - p1;
+    float3 s1 = cross(currentRay.direction, e2);
+    float divisor = dot(s1, e1);
+    if (divisor == 0.0f)
+        return;
+    float invDivisor = 1.0f / divisor;
+
+    // Compute first barycentric coordinate
+    float3 d = currentRay.origin - p1;
+    float b1 = dot(d, s1) * invDivisor;
+    if (b1 < 0.0f || b1 > 1.0f)
+        return;
+
+    // Compute second barycentric coordinate
+    float3 s2 = cross(d, e1);
+    float b2 = dot(currentRay.direction, s2) * invDivisor;
+    if (b2 < 0.0f || b1 + b2 > 1.0f)
+        return;
+
+    // Compute t to intersection point
+    float t = dot(e2, s2) * invDivisor;
 
     // Intersect ray with triangle.
-    float3 normal;
-    float  tHit, beta, gamma;
-    if (intersect_triangle(currentRay, v0, v1, v2, normal, tHit, beta, gamma)) {
-        if (rtPotentialIntersection(tHit)) {
-            shadingNormal   = normal;
-            geometricNormal = normal;
-            rtReportIntersection(0);    // we have only one material
+    if (rtPotentialIntersection(t)) {
+        // compute dpdu, dpdv
+        float uvs[3][2]; getUVs(uvs);
+        float du1 = uvs[0][0] - uvs[2][0];
+        float du2 = uvs[1][0] - uvs[2][0];
+        float dv1 = uvs[0][1] - uvs[2][1];
+        float dv2 = uvs[1][1] - uvs[2][1];
+        float3 dp1 = p1 - p3, dp2 = p2 - p3;
+        float determinant = du1 * dv2 - dv1 * du2;
+        if (determinant == 0.0f)
+            createCoordinateSystem(cross(e2, e1), &geometricDG.dpdu, &geometricDG.dpdv);
+        else {
+            float invdet = 1.0f / determinant;
+            geometricDG.dpdu = ( dv2 * dp1 - dv1 * dp2) * invdet;
+            geometricDG.dpdv = (-du2 * dp1 + du1 * dp2) * invdet;
         }
+
+        // hit point and normal
+        /* TODO: interpolate normal */
+        geometricDG.point  = currentRay.origin + t*currentRay.direction;
+        geometricDG.normal = normalize(cross(geometricDG.dpdu, geometricDG.dpdv));
+
+        rtReportIntersection(0);    // we have only one material
     }
 }   /* -----  end of function intersect  ----- */

@@ -48,10 +48,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
 #    passes/importonShootingPassPrograms.cu
 #    passes/photonShootingPassPrograms.cu
 #    passes/gatheringPassPrograms.cu
-    renderers/IGPPMRendererPixelSamplingPass.cu
-    renderers/IGPPMRendererImportonShootingPass.cu
-    renderers/IGPPMRendererPhotonShootingPass.cu
-    renderers/IGPPMRendererFinalGatheringPass.cu
+    renderers/IGPPMRenderer.cu
     shapes/triangleMeshShapePrograms.cu
     )
 else()

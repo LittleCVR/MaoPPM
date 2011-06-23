@@ -93,10 +93,10 @@ void IGPPMRenderer::init()
     setExceptionProgram(ImportonShootingPass);
     setExceptionProgram(PhotonShootingPass);
     setExceptionProgram(FinalGatheringPass);
-    setRayGenerationProgram(PixelSamplingPass, "IGPPMRendererPixelSamplingPass.cu", "generatePixelSamples");
-    setRayGenerationProgram(ImportonShootingPass, "IGPPMRendererImportonShootingPass.cu", "shootImportons");
-    setRayGenerationProgram(PhotonShootingPass, "IGPPMRendererPhotonShootingPass.cu", "shootPhotons");
-    setRayGenerationProgram(FinalGatheringPass, "IGPPMRendererFinalGatheringPass.cu", "gather");
+    setRayGenerationProgram(PixelSamplingPass,    "IGPPMRenderer.cu", "generatePixelSamples");
+    setRayGenerationProgram(ImportonShootingPass, "IGPPMRenderer.cu", "shootImportons");
+    setRayGenerationProgram(PhotonShootingPass,   "IGPPMRenderer.cu", "shootPhotons");
+    setRayGenerationProgram(FinalGatheringPass,   "IGPPMRenderer.cu", "gatherPhotons");
     setMissProgram(NormalRay, "ray.cu", "handleNormalRayMiss");
 }   /* -----  end of method IGPPMRenderer::init  ----- */
 
@@ -124,29 +124,32 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
         context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
 
-        // importon
-        launchSize = make_uint2(width(), height());
-        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-        nSamplesPerThread = 2 * m_nImportonsPerThread;
-        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-        context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
+        context()["resetImporton"]->setUint(true);
     }
 
-//    // photon
-//    launchSize = make_uint2(width(), height());
-//    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-//    nSamplesPerThread = 2 * m_nPhotonsPerThread;
-//    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-//    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-//    context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
-//    createPhotonMap();
-//
-//    // gathering
-//    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
-//    launchSize = make_uint2(width(), height());
-//    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-//    context()->launch(FinalGatheringPass, launchSize.x, launchSize.y);
+    // importon
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 2 * m_nImportonsPerThread;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
+    context()["resetImporton"]->setUint(false);
+
+    // photon
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 2 * m_nPhotonsPerThread;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
+    createPhotonMap();
+
+    // gathering
+    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    context()->launch(FinalGatheringPass, launchSize.x, launchSize.y);
 }   /* -----  end of method IGPPMRenderer::render  ----- */
 
 
@@ -263,6 +266,7 @@ void IGPPMRenderer::createPhotonMap()
         }
     m_photonMap->unmap();
     m_nEmittedPhotons += nValidPhotons;
+    debug("valid photons: \033[01;31m%u\033[00m\n", nValidPhotons);
 
     // build acceleration
     Photon * photonMapPtr  = static_cast<Photon *>(m_photonMap->map());

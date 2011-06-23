@@ -65,6 +65,7 @@ class System {
         void    printUsageAndExit(const char * fileName, bool doExit = true);
 
     private:    // members
+        bool        m_useSRGB;
         float       m_timeout;  // The program will run for only timeout secs,
                                 // set it to 0 to indicate the program should run
                                 // forever.

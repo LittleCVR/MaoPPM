@@ -50,3 +50,16 @@ RT_PROGRAM void handleNormalRayMiss()
 {
     normalRayPayload.isHit = false;
 }   /* -----  end of function handleNormalRayMiss  ----- */
+
+
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  handleShadowRayClosestHit
+ *  Description:  
+ * =============================================================================
+ */
+RT_PROGRAM void handleShadowRayAnyHit()
+{
+    shadowRayPayload.isHit = 1;
+}   /* -----  end of function handleShadowRayAnyHit  ----- */
