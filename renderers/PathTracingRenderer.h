@@ -45,24 +45,8 @@ class PathTracingRenderer : public Renderer {
         ~PathTracingRenderer();
 
     public:
+        static const unsigned int  N_PASSES  = 1;
         enum Pass { PathTracingPass };
-        unsigned int nPasses() const { return 1; }
-
-        enum RayType { RadianceRay, ShadowRay };
-        unsigned int nRayTypes() const { return 2; }
-
-        typedef struct RadianceRayPayload {
-            unsigned int    depth;
-            optix::float3   radiance;
-            unsigned int    sampleIndexBase;
-        } RadianceRayPayload ;
-
-        typedef struct ShadowRayPayload {
-            float           attenuation;
-        } ShadowRayPayload ;
-
-        void setMaterialPrograms(const std::string & name,
-                optix::Material & material);
 
     public:     // methods
         void    init();

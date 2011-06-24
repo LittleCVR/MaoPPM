@@ -21,7 +21,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/utility.h
     materials/Matte.h
     renderers/IGPPMRenderer.h
-#    renderers/PathTracingRenderer.h
+    renderers/PathTracingRenderer.h
 #    renderers/PPMRenderer.h
     # source files
     core/global.cpp
@@ -32,7 +32,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/System.cpp
     parsers/pbrtParser.cc
     parsers/pbrtScanner.cc
-#    renderers/PathTracingRenderer.cpp
+    renderers/PathTracingRenderer.cpp
 #    renderers/PPMRenderer.cpp
     renderers/IGPPMRenderer.cpp
     # CUDA source files
@@ -48,6 +48,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
 #    passes/importonShootingPassPrograms.cu
 #    passes/photonShootingPassPrograms.cu
 #    passes/gatheringPassPrograms.cu
+    renderers/PathTracingRenderer.cu
     renderers/IGPPMRenderer.cu
     shapes/triangleMeshShapePrograms.cu
     )

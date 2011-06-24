@@ -44,8 +44,8 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
-        static const unsigned int  DEFAULT_N_PHOTONS_PER_THREAD    = 2;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 32;
+        static const unsigned int  DEFAULT_N_PHOTONS_PER_THREAD    = 16;
 
     public:
         IGPPMRenderer(Scene * scene = NULL);
@@ -64,7 +64,6 @@ class IGPPMRenderer : public Renderer {
             optix::float3  wo;
             optix::float3  direct;
             optix::float3  indirect;
-            unsigned int   nImportons;
 
             __device__ __inline__ void reset()
             {

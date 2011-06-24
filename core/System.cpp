@@ -35,7 +35,7 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "Scene.h"
-//#include    "PathTracingRenderer.h"
+#include    "PathTracingRenderer.h"
 //#include    "PPMRenderer.h"
 #include    "IGPPMRenderer.h"
 
@@ -141,25 +141,25 @@ void System::parseArguments(int argc, char ** argv)
             if (++i < argc) {
                 string rendererType(argv[i]);
                 cerr << "Specified renderer: " << rendererType << "." << endl;
-//                if (rendererType == "PathTracing")
-//                    m_renderer = new PathTracingRenderer;
+                if (rendererType == "PathTracing")
+                    m_renderer = new PathTracingRenderer;
 //                else if (rendererType == "PPM")
 //                    m_renderer = new PPMRenderer;
-                if (rendererType == "IGPPM")
+                else if (rendererType == "IGPPM")
                     m_renderer = new IGPPMRenderer;
                 else {
                     cerr << "Unknown renderer: " << rendererType << endl;
-                    printUsageAndExit(argv[0]);
+                    exit(EXIT_FAILURE);
                 }
             } else {
                 std::cerr << "Missing argument to " << arg << std::endl;
-                printUsageAndExit(argv[0]);
+                exit(EXIT_FAILURE);
             }
         }
         // otherwise
         else {
             std::cerr << "Unknown option: '" << arg << std::endl;
-            printUsageAndExit(argv[0]);
+            exit(EXIT_FAILURE);
         }
     }
 }   /* -----  end of function System::parseArguments  ----- */

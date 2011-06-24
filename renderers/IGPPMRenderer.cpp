@@ -130,7 +130,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     // importon
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 2 * m_nImportonsPerThread;
+    nSamplesPerThread = 3 * m_nImportonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
@@ -139,7 +139,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     // photon
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 2 * m_nPhotonsPerThread;
+    nSamplesPerThread = 3 * m_nPhotonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);

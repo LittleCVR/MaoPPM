@@ -88,20 +88,6 @@ RT_PROGRAM void handleNormalRayClosestHit()
 //        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
 //    }
 
-    const float3 & nn = dg->normal;
-    const float3 & sn = normalize(dg->dpdu);
-    const float3 tn = cross(nn, sn);
-//    if (launchIndex.x == 449 && launchIndex.y == 252) {
-//        rtPrintf("sn "); dump(sn); rtPrintf("\n");
-//        rtPrintf("tn "); dump(tn); rtPrintf("\n");
-//        rtPrintf("nn "); dump(nn); rtPrintf("\n");
-//    }
-    float * w2o = intersection.worldToObject()->getData();
-    w2o[ 0] = sn.x; w2o[ 1] = sn.y; w2o[ 2] = sn.z; w2o[ 3] = 0.0f;
-    w2o[ 4] = tn.x; w2o[ 5] = tn.y; w2o[ 6] = tn.z; w2o[ 7] = 0.0f;
-    w2o[ 8] = nn.x; w2o[ 9] = nn.y; w2o[10] = nn.z; w2o[11] = 0.0f;
-    w2o[12] = 0.0f; w2o[13] = 0.0f; w2o[14] = 0.0f; w2o[15] = 1.0f;
-
     // BSDF
     Matte & material = GET_MATERIAL(Matte, materialIndex);
     BSDF * bsdf = intersection.bsdf();
