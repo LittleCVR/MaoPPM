@@ -49,7 +49,7 @@ class Matte : public Material {
             return 0;
         }
 
-//    private:
+    public:
         optix::float3   m_kd;
 };  /* -----  end of class Matte  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */

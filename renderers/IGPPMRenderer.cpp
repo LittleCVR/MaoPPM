@@ -44,9 +44,11 @@ using namespace MaoPPM;
 
 IGPPMRenderer::IGPPMRenderer(Scene * scene) : Renderer(scene),
     m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
-    m_nPhotonsPerThread(DEFAULT_N_PHOTONS_PER_THREAD)
+    m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED)
 {
-    /* EMPTY */
+    m_nPhotonsPerThread = m_nPhotonsWanted /
+        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH /
+        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT;
 }   /* -----  end of method IGPPMRenderer::IGPPMRenderer  ----- */
 
 
@@ -66,22 +68,26 @@ void IGPPMRenderer::init()
     debug("sizeof(Importon)    = \033[01;31m%4d\033[00m.\n", sizeof(Importon));
     debug("sizeof(Photon)      = \033[01;31m%4d\033[00m.\n", sizeof(Photon));
 
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
+
     // buffers
-    m_pixelSampleList = context()->createBuffer(RT_BUFFER_OUTPUT, RT_FORMAT_USER);
+    m_pixelSampleList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_pixelSampleList->setElementSize(sizeof(PixelSample));
     m_pixelSampleList->setSize(width(), height());
     context()["pixelSampleList"]->set(m_pixelSampleList);
 
-    m_importonList = context()->createBuffer(RT_BUFFER_OUTPUT, RT_FORMAT_USER);
+    m_importonList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_importonList->setElementSize(sizeof(Importon));
     m_importonList->setSize(m_nImportonsPerThread * width() * height());
     context()["importonList"]->set(m_importonList);
 
     m_photonMap = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_photonMap->setElementSize(sizeof(Photon));
-    m_photonMap->setSize(m_nPhotonsPerThread * width() * height());
+    m_photonMap->setSize(m_nPhotonsWanted);
     context()["photonList"]->set(m_photonMap);
     context()["photonMap"]->set(m_photonMap);
+    debug("\033[01;33mphotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
+            sizeof(Photon) * m_nPhotonsWanted);
 
     // variables
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
@@ -137,9 +143,11 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     context()["resetImporton"]->setUint(false);
 
     // photon
-    launchSize = make_uint2(width(), height());
+    launchSize = make_uint2(
+            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH,
+            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT);
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 3 * m_nPhotonsPerThread;
+    nSamplesPerThread = 4 * m_nPhotonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
@@ -166,9 +174,6 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
     context()["importonList"]->set(m_importonList);
     debug("\033[01;33mimportonList\033[00m    resized to: \033[01;31m%10u\033[00m.\n",
             sizeof(Importon) * m_nImportonsPerThread * width * height);
-    m_photonMap->setSize(m_nPhotonsPerThread * width * height);
-    debug("\033[01;33mphotonMap\033[00m       resized to: \033[01;31m%10u\033[00m.\n",
-            sizeof(Photon) * m_nPhotonsPerThread * width * height);
 }   /* -----  end of method IGPPMRenderer::resize  ----- */
 
 
@@ -253,7 +258,7 @@ void IGPPMRenderer::createPhotonMap()
     Photon * validPhotonList = new Photon [photonListSize];
 
     // count valid photons & build bounding box
-    uint nValidPhotons = 0;
+    uint nValidPhotons = 0, nDirectPhotons = 0;
     float3 bbMin = make_float3(+std::numeric_limits<float>::max());
     float3 bbMax = make_float3(-std::numeric_limits<float>::max());
     Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
@@ -262,14 +267,16 @@ void IGPPMRenderer::createPhotonMap()
             validPhotonList[nValidPhotons] = photonListPtr[i];
             bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
             bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
+            if (validPhotonList[nValidPhotons].flags & Photon::Direct)
+                ++nDirectPhotons;
             ++nValidPhotons;
         }
-    m_photonMap->unmap();
-    m_nEmittedPhotons += nValidPhotons;
-    debug("valid photons: \033[01;31m%u\033[00m\n", nValidPhotons);
+    m_nEmittedPhotons += nDirectPhotons;
+    debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
+    debug("valid photons:  \033[01;31m%u\033[00m\n", nValidPhotons);
 
     // build acceleration
-    Photon * photonMapPtr  = static_cast<Photon *>(m_photonMap->map());
+    Photon * photonMapPtr = photonListPtr;
     buildPhotonMapAcceleration(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 

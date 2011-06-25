@@ -95,7 +95,7 @@ RT_PROGRAM void handleNormalRayClosestHit()
 
     // BxDFs
     /*TODO*/
-    bsdf->m_nBxDFs = 1;
+    bsdf->setNBxDFs(1);
     Lambertian * bxdf = reinterpret_cast<Lambertian *>(bsdf->bxdfList());
     *bxdf = Lambertian(material.m_kd);
 }   /* -----  end of function handleNormalRayClosestHit  ----- */

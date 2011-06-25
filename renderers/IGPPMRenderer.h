@@ -44,8 +44,10 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 32;
-        static const unsigned int  DEFAULT_N_PHOTONS_PER_THREAD    = 16;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 8;
+        static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*2;
+        static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
+        static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
 
     public:
         IGPPMRenderer(Scene * scene = NULL);
@@ -88,17 +90,20 @@ class IGPPMRenderer : public Renderer {
             optix::float3  flux;      // photon flux
 
             enum Flags {
-                Null   = 0,
-                Leaf   = 1 << 0,
-                AxisX  = 1 << 1,
-                AxisY  = 1 << 2,
-                AxisZ  = 1 << 3
+                Null      = 0,
+                Leaf      = 1 << 0,
+                AxisX     = 1 << 1,
+                AxisY     = 1 << 2,
+                AxisZ     = 1 << 3,
+                Direct    = 1 << 4,
+                Indirect  = 1 << 5
             };
             unsigned int   flags;     // for KdTree
 
-            __device__ __inline__ void init()
+            __device__ __inline__ void reset()
             {
-                flux = optix::make_float3(0.0f);
+                flags  = Null;
+                flux   = optix::make_float3(0.0f);
             }
 
             static bool positionXComparator(const Photon & photon1, const Photon & photon2)
@@ -128,6 +133,7 @@ class IGPPMRenderer : public Renderer {
 
     private:
         unsigned int   m_nImportonsPerThread;
+        unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;
         unsigned int   m_nEmittedPhotons;
         optix::Buffer  m_pixelSampleList;

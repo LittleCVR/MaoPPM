@@ -36,6 +36,5 @@ using namespace optix;
  */
 RT_PROGRAM void handleException()
 {
-    unsigned int code = rtGetExceptionCode();
     rtPrintExceptionDetails();
 }   /* -----  end of function handleException  ----- */
