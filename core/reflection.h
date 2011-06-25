@@ -217,7 +217,7 @@ class Lambertian : public BxDF {
         BxDF_sampleF
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
-    private:
+//    private:
         optix::float3  m_reflectance;
 };  /* -----  end of class Lambertian  ----- */
 
@@ -411,10 +411,7 @@ class Microfacet : public BxDF {
  */
 class BSDF {
     public:
-        static const unsigned int  MAX_N_BXDFS    = 2;
-        // If added some new BxDF in the future,
-        // change this to the biggest BxDF class.
-        static const unsigned int  MAX_BXDF_SIZE  = sizeof(Lambertian);
+        static const unsigned int  MAX_N_BXDFS  = 2;
 
 #ifdef __CUDACC__
     public:
@@ -434,10 +431,7 @@ class BSDF {
         __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
         __device__ __inline__ void setNBxDFs(unsigned int n) { m_nBxDFs = n; }
 
-        __device__ __inline__ void * bxdfList()
-        {
-            return reinterpret_cast<void *>(m_bxdfList);
-        }
+        __device__ __inline__ Index * bxdfList() { return m_bxdfList; }
 
     public:
         __device__ __inline__ optix::float3 f(const optix::float3 & worldWo,
@@ -447,17 +441,15 @@ class BSDF {
             worldToLocal(worldWo, &wo);
             worldToLocal(worldWi, &wi);
             // Calculate f.
-            Index index = 0;
             optix::float3 totalF = optix::make_float3(0.0f);
             for (unsigned int i = 0; i < m_nBxDFs; i++) {
-                const BxDF & bxdf = reinterpret_cast<const BxDF &>(m_bxdfList[index]);
+                const BxDF * bxdf = LOCAL_HEAP_GET_OBJECT_POINTER(const BxDF, m_bxdfList[i]);
                 // Skip unmatched BxDF.
-                if (!(bxdf.type() & type)) continue;
+                if (!(bxdf->type() & type)) continue;
                 // Determine real BxDF type.
-                if (bxdf.type() & BxDF::Lambertian) {
-                    const Lambertian & b = reinterpret_cast<const Lambertian &>(bxdf);
-                    totalF += b.f(wo, wi);
-                    index += sizeof(Lambertian);
+                if (bxdf->type() & BxDF::Lambertian) {
+                    const Lambertian * b = reinterpret_cast<const Lambertian *>(bxdf);
+                    totalF += b->f(wo, wi);
                 }
             }
             return totalF;
@@ -473,16 +465,16 @@ class BSDF {
             // Sample BxDF.
             unsigned int index = min(m_nBxDFs-1,
                     static_cast<unsigned int>(floorf(sample.x * static_cast<float>(m_nBxDFs))));
-            const BxDF & bxdf = reinterpret_cast<const BxDF &>(m_bxdfList[index * MAX_BXDF_SIZE]);
+            const BxDF * bxdf = LOCAL_HEAP_GET_OBJECT_POINTER(const BxDF, m_bxdfList[index]);
             *probability = 1.0f / static_cast<float>(m_nBxDFs);
             // Sample f.
             float prob;
             optix::float3 f;
             optix::float3 wi;
             optix::float2 s = optix::make_float2(sample.y, sample.z);
-            if (bxdf.type() & BxDF::Lambertian) {
-                const Lambertian & b = reinterpret_cast<const Lambertian &>(bxdf);
-                f = b.sampleF(wo, &wi, s, &prob);
+            if (bxdf->type() & BxDF::Lambertian) {
+                const Lambertian * b = reinterpret_cast<const Lambertian *>(bxdf);
+                f = b->sampleF(wo, &wi, s, &prob);
             }
             *probability *= prob;
             localToWorld(wi, worldWi);
@@ -519,8 +511,12 @@ class BSDF {
         optix::float3         m_nn;
         optix::float3         m_gn;
         unsigned int          m_nBxDFs;
-        char                  m_bxdfList [MAX_N_BXDFS * MAX_BXDF_SIZE];
+        Index                 m_bxdfList[MAX_N_BXDFS];
 };  /* -----  end of class BSDF  ----- */
+
+
+
+static const unsigned int  MAX_BXDF_SIZE  = sizeof(Microfacet);
 
 }   /* -----  end of namespace MaoPPM  ----- */
 

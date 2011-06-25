@@ -116,6 +116,8 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     if (scene()->isCameraChanged()) {
         m_nEmittedPhotons = 0;
 
+        context()["resetImporton"]->setUint(true);
+
         scene()->setIsCameraChanged(false);
         context()["cameraPosition"]->setFloat(cameraData.eye);
         context()["cameraU"]->setFloat(cameraData.U);
@@ -123,17 +125,19 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         context()["cameraW"]->setFloat(cameraData.W);
 
         // pixel sample
+        setLocalHeapPointer(0);
         launchSize = make_uint2(width(), height());
         context()["launchSize"]->setUint(launchSize.x, launchSize.y);
         nSamplesPerThread = 2;
         generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
         context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
         context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
-
-        context()["resetImporton"]->setUint(true);
     }
 
     // importon
+    /* TODO: remove hard coding */
+    static unsigned int importonLocalHeapPointerOffset = 32 * 1024 * 1024;
+    setLocalHeapPointer(importonLocalHeapPointerOffset);
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     nSamplesPerThread = 3 * m_nImportonsPerThread;
@@ -141,8 +145,11 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
     context()["resetImporton"]->setUint(false);
+    importonLocalHeapPointerOffset = localHeapPointer();
 
     // photon
+    /* TODO: remove hard coding */
+    setLocalHeapPointer(160 * 1024 * 1024);
     launchSize = make_uint2(
             DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH,
             DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT);

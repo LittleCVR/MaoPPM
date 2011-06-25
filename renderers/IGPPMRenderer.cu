@@ -103,6 +103,7 @@ RT_PROGRAM void generatePixelSamples()
 
     // Intersect with the scene.
     NormalRayPayload payload;
+    payload.reset();
     rtTrace(rootObject, ray, payload);
     pixelSample.isHit = payload.isHit;
     if (!pixelSample.isHit) return;
@@ -115,10 +116,10 @@ RT_PROGRAM void generatePixelSamples()
     /* TODO: move this task to the light class */
     // Evaluate direct illumination.
     float3 Li;
-    Intersection & intersection = pixelSample.intersection;
+    Intersection * intersection = &pixelSample.intersection;
     {
-        const Light & light = lightList[0];
-        float3 shadowRayDirection = light.position - intersection.dg()->point;
+        const Light * light = &lightList[0];
+        float3 shadowRayDirection = light->position - intersection->dg()->point;
         float3 wi = normalize(shadowRayDirection);
         float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
         float distance = sqrtf(distanceSquared);
@@ -135,14 +136,14 @@ RT_PROGRAM void generatePixelSamples()
 //        outputBuffer[launchIndex] = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
 
         ShadowRayPayload shadowRayPayload;
-        shadowRayPayload.isHit = 0;
-        ray = Ray(intersection.dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
+        shadowRayPayload.reset();
+        ray = Ray(intersection->dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-        BSDF * bsdf = intersection.bsdf();
+        BSDF * bsdf = intersection->bsdf();
         float3 f = bsdf->f(pixelSample.wo, wi);
-        Li = pairwiseMul(f, light.flux) / (4.0f * M_PIf * distanceSquared);
+        Li = pairwiseMul(f, light->flux) / (4.0f * M_PIf * distanceSquared);
     }
 
     pixelSample.direct = Li;
@@ -158,6 +159,8 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootImportons()
 {
+    if(launchIndex.x == 0 && launchIndex.y == 0)
+    rtPrintf("========== importon shooting pass ==========\n");
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!pixelSample.isHit) return;
 
@@ -214,6 +217,8 @@ RT_PROGRAM void shootImportons()
  */
 RT_PROGRAM void shootPhotons()
 {
+    if(launchIndex.x == 0 && launchIndex.y == 0)
+    rtPrintf("========== photon shooting pass ==========\n");
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     uint sampleIndex = nSamplesPerThread * offset;
     uint photonIndex = nPhotonsPerThread * offset;
@@ -291,6 +296,8 @@ RT_PROGRAM void shootPhotons()
  */
 RT_PROGRAM void gatherPhotons()
 {
+    if(launchIndex.x == 0 && launchIndex.y == 0)
+    rtPrintf("========== final gathering pass ==========\n");
     // Do not have to gather photons if pixel sample is not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!pixelSample.isHit) return;

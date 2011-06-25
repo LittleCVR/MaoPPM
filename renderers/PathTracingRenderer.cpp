@@ -72,6 +72,8 @@ void PathTracingRenderer::init()
 
 void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
+    resetLocalHeapPointer();
+
     if (scene()->isCameraChanged()) {
         scene()->setIsCameraChanged(false);
         context()["cameraPosition"]->setFloat(cameraData.eye);

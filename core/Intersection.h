@@ -41,7 +41,7 @@ class Intersection {
 
         __device__ __inline__ BSDF * bsdf()
         {
-            return reinterpret_cast<BSDF *>(m_bsdf);
+            return LOCAL_HEAP_GET_OBJECT_POINTER(BSDF, m_bsdf);
         }
 
         __device__ __inline__ optix::Matrix4x4 worldToObject() const
@@ -53,11 +53,11 @@ class Intersection {
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
-    private:
+//    private:
         DifferentialGeometry  m_dg;
         // Can't use BSDF directly here because nvcc would say:
         // can't generate code for non empty constructors or destructors on device
-        char  m_bsdf[sizeof(BSDF)];
+        Index  m_bsdf;
 };  /* -----  end of class Intersection  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

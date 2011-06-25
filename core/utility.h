@@ -24,13 +24,31 @@
  *----------------------------------------------------------------------------*/
 #include    <optix_world.h>
 
+/*---------------------------------------------------------------------------
+ *  header files of our own
+ *---------------------------------------------------------------------------*/
+#include    "global.h"
+
+
+
+#ifdef __CUDACC__
+rtBuffer<char ,          1>  localHeap;
+rtBuffer<MaoPPM::Index,  1>  localHeapPointer;
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
 
 
 #ifdef __CUDACC__
 namespace MaoPPM {
 
+#define LOCAL_HEAP_ALLOC(type) \
+    atomicAdd(&localHeapPointer[0], sizeof(type))
+
+#define LOCAL_HEAP_GET_OBJECT_POINTER(type, index) \
+    reinterpret_cast<type *>(&localHeap[index]);
+
 #define GET_MATERIAL(type, index) \
-    reinterpret_cast<type &>(heap[index])
+    reinterpret_cast<type *>(&inputHeap[index])
 
 #define GET_1_SAMPLES(sampleList, sampleIndex) \
     sampleList[sampleIndex]; \

@@ -91,32 +91,32 @@ Index Scene::copyToHeap(void * data, unsigned int size)
     do {
         // Check heap size.
         RTsize heapSize;
-        m_heap->getSize(heapSize);
+        m_inputHeap->getSize(heapSize);
         // Expand it if necessary.
-        if (m_heapPointer + size <= heapSize)
+        if (m_inputHeapPointer + size <= heapSize)
             break;
         else {
             void * dst = malloc(heapSize);
-            void * src = m_heap->map();
+            void * src = m_inputHeap->map();
             memcpy(dst, src, heapSize);
-            m_heap->unmap();
+            m_inputHeap->unmap();
             debug("\033[01;33mheap\033[00m expanded, size = \033[01;31m%u\033[00m.\n", 2 * heapSize);
-            m_heap->setSize(2 * heapSize);
-            src = m_heap->map();
+            m_inputHeap->setSize(2 * heapSize);
+            src = m_inputHeap->map();
             memcpy(src, dst, heapSize);
-            m_heap->unmap();
+            m_inputHeap->unmap();
             free(dst);
         }
     } while (true);
 
     // Copy data.
-    char * dst = static_cast<char *>(m_heap->map());
-    memcpy(dst + m_heapPointer, data, size);
-    m_heap->unmap();
+    char * dst = static_cast<char *>(m_inputHeap->map());
+    memcpy(dst + m_inputHeapPointer, data, size);
+    m_inputHeap->unmap();
 
     // Returns address.
-    unsigned int pos = m_heapPointer;
-    m_heapPointer += size;
+    unsigned int pos = m_inputHeapPointer;
+    m_inputHeapPointer += size;
     return pos;
 }   /* -----  end of method Scene::copyToHeap  ----- */
 
@@ -178,10 +178,11 @@ void Scene::initScene(InitialCameraData & cameraData)
     context()["rayEpsilon"]->setFloat(DEFAULT_RAY_EPSILON);
 
     // Initialize heap.
-    m_heapPointer = 0;
-    m_heap = context()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_BYTE);
-    m_heap->setSize(DEFAULT_HEAP_SIZE);
-    context()["heap"]->set(m_heap);
+    m_inputHeapPointer = 0;
+    m_inputHeap = context()->createBuffer(
+            RT_BUFFER_INPUT_OUTPUT | RT_BUFFER_GPU_LOCAL, RT_FORMAT_BYTE);
+    m_inputHeap->setSize(DEFAULT_INPUT_HEAP_SIZE);
+    context()["inputHeap"]->set(m_inputHeap);
 
     // Initialize root object.
     m_rootObject = context()->createGeometryGroup();
@@ -209,6 +210,8 @@ void Scene::initScene(InitialCameraData & cameraData)
 
 void Scene::trace(const RayGenCameraData & cameraData)
 {
+    // Camera.
     m_rayGenCameraData = cameraData;
+    // Render.
     m_renderer->render(cameraData);
 }   /* -----  end of method Scene::trace  ----- */

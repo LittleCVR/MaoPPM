@@ -85,6 +85,10 @@ class Renderer {
          */
         void  generateSamples(const optix::uint nSamples);
 
+        Index localHeapPointer();
+        void  resetLocalHeapPointer();
+        void  setLocalHeapPointer(const Index & index);
+
         void  setExceptionProgram(unsigned int entryPointIndex,
                 const std::string & cuFileName = "exception.cu",
                 const std::string & exceptionProgramName = "handleException");
@@ -101,6 +105,8 @@ class Renderer {
         unsigned int   m_height;        /* screen height */
         optix::Buffer  m_outputBuffer;
         optix::Buffer  m_sampleList;
+        optix::Buffer  m_localHeap;
+        optix::Buffer  m_localHeapPointer;
 };  /* -----  end of class Renderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

@@ -57,7 +57,7 @@ class Scene : public SampleScene {
         inline Renderer *   renderer() const { return m_renderer; }
         void                setRenderer(Renderer * renderer);
 
-        optix::Buffer       heap() const { return m_heap; }
+        optix::Buffer       inputHeap() const { return m_inputHeap; }
         /*
          *----------------------------------------------------------------------
          *       Class:  Scene
@@ -80,7 +80,7 @@ class Scene : public SampleScene {
 
 #ifndef NDEBUG
     private:    // methods
-        void                  initDebug();
+        void                initDebug();
 #endif  /* -----  end of #ifndef NDEBUG  ----- */
 
     private:    // attributes
@@ -89,8 +89,8 @@ class Scene : public SampleScene {
         RayGenCameraData        m_rayGenCameraData;
         optix::GeometryGroup    m_rootObject;
         optix::Buffer           m_lightList;
-        optix::Buffer           m_heap;
-        Index                   m_heapPointer;
+        optix::Buffer           m_inputHeap;
+        Index                   m_inputHeapPointer;
 };  /* -----  end of class Scene  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

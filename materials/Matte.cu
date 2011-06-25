@@ -44,8 +44,8 @@ using namespace MaoPPM;
 rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
-rtBuffer<char,  1>  heap;
-rtBuffer<float, 1>  sampleList;
+rtBuffer<float,  1>  sampleList;
+rtBuffer<char,   1>  inputHeap;
 
 rtDeclareVariable(rtObject, rootObject, , );
 rtDeclareVariable(DifferentialGeometry, geometricDG, attribute differential_geometry, ); 
@@ -70,8 +70,8 @@ RT_PROGRAM void handleNormalRayClosestHit()
 {
     normalRayPayload.isHit = true;
 
-    Intersection & intersection = normalRayPayload.intersection;
-    DifferentialGeometry * dg = intersection.dg();
+    Intersection * intersection = &normalRayPayload.intersection;
+    DifferentialGeometry * dg = intersection->dg();
 
     *dg = geometricDG;
 //    if (launchIndex.x == 449 && launchIndex.y == 252) {
@@ -89,13 +89,18 @@ RT_PROGRAM void handleNormalRayClosestHit()
 //    }
 
     // BSDF
-    Matte & material = GET_MATERIAL(Matte, materialIndex);
-    BSDF * bsdf = intersection.bsdf();
+    Index bsdfIndex = LOCAL_HEAP_ALLOC(BSDF);
+    BSDF * bsdf = LOCAL_HEAP_GET_OBJECT_POINTER(BSDF, bsdfIndex);
     *bsdf = BSDF(*dg, geometricDG.normal);
+    intersection->m_bsdf = bsdfIndex;
 
     // BxDFs
     /*TODO*/
+    Matte * material = GET_MATERIAL(Matte, materialIndex);
+    Index lambertianIndex = LOCAL_HEAP_ALLOC(Lambertian);
+    Lambertian * lambertian = LOCAL_HEAP_GET_OBJECT_POINTER(Lambertian, lambertianIndex);
+    *lambertian = Lambertian(material->m_kd);
+
     bsdf->setNBxDFs(1);
-    Lambertian * bxdf = reinterpret_cast<Lambertian *>(bsdf->bxdfList());
-    *bxdf = Lambertian(material.m_kd);
+    bsdf->bxdfList()[0] = lambertianIndex;
 }   /* -----  end of function handleNormalRayClosestHit  ----- */

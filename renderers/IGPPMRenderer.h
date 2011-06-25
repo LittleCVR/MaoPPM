@@ -81,6 +81,11 @@ class IGPPMRenderer : public Renderer {
             optix::float3  flux;
             unsigned int   nPhotons;
             float          radiusSquared;
+
+            __device__ __inline__ void reset()
+            {
+                isHit = false;
+            }
         } Importon ;
 
         typedef struct Photon {

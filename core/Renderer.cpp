@@ -63,6 +63,16 @@ void Renderer::init()
     m_sampleList = context()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT);
     m_sampleList->setSize(0);
     context()["sampleList"]->set(m_sampleList);
+
+    // Local heap for GPU.
+    /* TODO: remove hard coded size */
+    m_localHeap = context()->createBuffer(
+            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_BYTE, 256 * 1024 * 1024);
+    context()["localHeap"]->set(m_localHeap);
+    m_localHeapPointer = context()->createBuffer(
+            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER, 1);
+    m_localHeapPointer->setElementSize(sizeof(Index));
+    context()["localHeapPointer"]->set(m_localHeapPointer);
 }   /* -----  end of method PPMRenderer::initPPMRenderer  ----- */
 
 
@@ -105,6 +115,33 @@ void Renderer::resize(unsigned int width, unsigned int height)
             sizeof(float4) * width * height);
     m_outputBuffer->setSize(width, height);
 }   /* -----  end of method Renderer::resize  ----- */
+
+
+
+Index Renderer::localHeapPointer()
+{
+    Index * localHeapPointer = static_cast<Index *>(m_localHeapPointer->map());
+    Index index = localHeapPointer[0];
+    m_localHeapPointer->unmap();
+    return index;
+}
+
+
+
+void Renderer::resetLocalHeapPointer()
+{
+    setLocalHeapPointer(0);
+}
+
+
+
+void Renderer::setLocalHeapPointer(const Index & index)
+{
+    Index * localHeapPointer = static_cast<Index *>(m_localHeapPointer->map());
+    debug("\033[01;33mlocalHeapPointer\033[00m: \033[01;31m%u\033[00m\n", localHeapPointer[0]);
+    localHeapPointer[0] = index;
+    m_localHeapPointer->unmap();
+}
 
 
 
