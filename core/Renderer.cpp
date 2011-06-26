@@ -137,10 +137,14 @@ void Renderer::resetLocalHeapPointer()
 
 void Renderer::setLocalHeapPointer(const Index & index)
 {
+    static bool firstTimeEntered = true;
     Index * localHeapPointer = static_cast<Index *>(m_localHeapPointer->map());
-    debug("\033[01;33mlocalHeapPointer\033[00m: \033[01;31m%u\033[00m\n", localHeapPointer[0]);
+    if (firstTimeEntered) localHeapPointer[0] = 0;
+    debug("\033[01;33mlocalHeapPointer\033[00m at: \033[01;31m%u\033[00m, set to: \033[01;31m%u\033[00m\n",
+            localHeapPointer[0], index);
     localHeapPointer[0] = index;
     m_localHeapPointer->unmap();
+    firstTimeEntered = false;
 }
 
 

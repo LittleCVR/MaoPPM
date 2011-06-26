@@ -65,11 +65,11 @@ class IGPPMRenderer : public Renderer {
             Intersection *  intersection;
             optix::float3   wo;
             optix::float3   direct;
-            optix::float3   indirect;
 
             __device__ __inline__ void reset()
             {
-                isHit = false;
+                isHit   = false;
+                direct  = optix::make_float3(0.0f);
             }
         } PixelSample ;
 
@@ -84,7 +84,7 @@ class IGPPMRenderer : public Renderer {
 
             __device__ __inline__ void reset()
             {
-                isHit = false;
+                isHit  = false;
             }
         } Importon ;
 
@@ -144,6 +144,7 @@ class IGPPMRenderer : public Renderer {
         optix::Buffer  m_pixelSampleList;
         optix::Buffer  m_importonList;
         optix::Buffer  m_photonMap;
+        unsigned int   m_frame;
 };  /* -----  end of class IGPPMRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

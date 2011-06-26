@@ -92,6 +92,7 @@ void IGPPMRenderer::init()
     // variables
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
+    context()["nEmittedPhotons"]->setUint(0);
 
     // programs
     context()->setEntryPointCount(N_PASSES);
@@ -114,45 +115,61 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     uint2 launchSize = make_uint2(0, 0);
 
     if (scene()->isCameraChanged()) {
+        m_frame = 0;
         m_nEmittedPhotons = 0;
-
-        context()["resetImporton"]->setUint(true);
 
         scene()->setIsCameraChanged(false);
         context()["cameraPosition"]->setFloat(cameraData.eye);
         context()["cameraU"]->setFloat(cameraData.U);
         context()["cameraV"]->setFloat(cameraData.V);
         context()["cameraW"]->setFloat(cameraData.W);
-
-        // pixel sample
-        setLocalHeapPointer(0);
-        launchSize = make_uint2(width(), height());
-        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-        nSamplesPerThread = 2;
-        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-        context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
     }
 
-    // importon
-    /* TODO: remove hard coding */
-    static unsigned int importonLocalHeapPointerOffset = 32 * 1024 * 1024;
-    setLocalHeapPointer(importonLocalHeapPointerOffset);
+    if (m_frame % 10 == 0)
+        m_nEmittedPhotons = 0;
+    context()["frameCount"]->setUint(m_frame++);
+
+    // pixel sample
+    debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
     launchSize = make_uint2(width(), height());
+    unsigned int pixelSamplingPassLocalHeapSize =
+        launchSize.x * launchSize.y * sizeof(Intersection);
+    debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            pixelSamplingPassLocalHeapSize);
+    setLocalHeapPointer(0);
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 2;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+
+    // importon
+    debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
+    launchSize = make_uint2(width(), height());
+    unsigned int importonShootingPassLocalHeapSize =
+        launchSize.x * launchSize.y * m_nImportonsPerThread * sizeof(Intersection);
+    debug("ImportonShootingPass demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            importonShootingPassLocalHeapSize);
+    unsigned int importonShootingPassLocalHeapOffset = pixelSamplingPassLocalHeapSize;
+    setLocalHeapPointer(importonShootingPassLocalHeapOffset);
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     nSamplesPerThread = 3 * m_nImportonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
-    context()["resetImporton"]->setUint(false);
-    importonLocalHeapPointerOffset = localHeapPointer();
 
     // photon
-    /* TODO: remove hard coding */
-    setLocalHeapPointer(160 * 1024 * 1024);
+    debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
     launchSize = make_uint2(
             DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH,
             DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT);
+    unsigned int photonShootingPassLocalHeapSize =
+        launchSize.x * launchSize.y * m_nPhotonsPerThread * sizeof(Intersection);
+    debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            photonShootingPassLocalHeapSize);
+    unsigned int photonShootingPassLocalHeapOffset =
+        importonShootingPassLocalHeapOffset + importonShootingPassLocalHeapSize;
+    setLocalHeapPointer(photonShootingPassLocalHeapOffset);
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     nSamplesPerThread = 4 * m_nPhotonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
@@ -161,6 +178,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     createPhotonMap();
 
     // gathering
+    debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
@@ -280,7 +298,7 @@ void IGPPMRenderer::createPhotonMap()
         }
     m_nEmittedPhotons += nDirectPhotons;
     debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
-    debug("valid photons:  \033[01;31m%u\033[00m\n", nValidPhotons);
+    debug("valid  photons: \033[01;31m%u\033[00m\n", nValidPhotons);
 
     // build acceleration
     Photon * photonMapPtr = photonListPtr;

@@ -25,7 +25,7 @@ namespace MaoPPM {
 /*----------------------------------------------------------------------------
  *  default global settings
  *----------------------------------------------------------------------------*/
-static const unsigned int  DEFAULT_STACK_SIZE       = 4096;
+static const unsigned int  DEFAULT_STACK_SIZE       = 2048;
 static const unsigned int  DEFAULT_WIDTH            = 512;
 static const unsigned int  DEFAULT_HEIGHT           = 512;
 static const float         DEFAULT_TIMEOUT          = 0.0f;    // forever

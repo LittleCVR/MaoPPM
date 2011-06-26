@@ -411,6 +411,7 @@ class BSDF {
 
 #ifdef __CUDACC__
     public:
+        __device__ __inline__ BSDF() { /* EMPTY */ }
         __device__ __inline__ BSDF(
                 const DifferentialGeometry & dgShading,
                 const optix::float3 & geometricNormal, const float eta = 1.0f)
@@ -421,8 +422,6 @@ class BSDF {
             m_tn = optix::cross(m_nn, m_sn);
             m_nBxDFs = 0;
         }
-
-        __device__ __inline__ ~BSDF() { /* EMPTY */ }
 
         __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
         __device__ __inline__ const BxDF * bxdfAt(const Index & index) const

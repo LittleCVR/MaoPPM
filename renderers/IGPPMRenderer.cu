@@ -57,11 +57,11 @@ rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
 rtBuffer<float,       1>  sampleList;
 
-rtDeclareVariable(uint, resetImporton      , , ) = true;
+rtDeclareVariable(uint, frameCount         , , );
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, nImportonsPerThread, , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
-rtDeclareVariable(uint, nEmittedPhotons    , , ) = 0;
+rtDeclareVariable(uint, nEmittedPhotons    , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
 
 rtDeclareVariable(rtObject, rootObject, , );
@@ -85,8 +85,12 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
-    // Clear output buffer and pixel sample.
-    outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+    if (frameCount % 10 != 0) return;
+
+    // Clear output buffer.
+    if (frameCount == 0)
+        outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+    // Clear pixel sample.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.reset();
 
@@ -141,8 +145,8 @@ RT_PROGRAM void generatePixelSamples()
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-        BSDF * bsdf = intersection->bsdf();
-        float3 f = bsdf->f(pixelSample.wo, wi);
+        BSDF bsdf = intersection->bsdf();
+        float3 f = bsdf.f(pixelSample.wo, wi);
         Li = pairwiseMul(f, light->flux) / (4.0f * M_PIf * distanceSquared);
     }
 
@@ -159,22 +163,22 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootImportons()
 {
-    if(launchIndex.x == 0 && launchIndex.y == 0)
-    rtPrintf("========== importon shooting pass ==========\n");
+    if (frameCount % 10 != 0) return;
+
+    // Does not have to shoot importons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!pixelSample.isHit) return;
 
+    // Prepare offset variables.
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     uint sampleIndex   = offset * nSamplesPerThread;
     uint importonIndex = offset * nImportonsPerThread;
 
-    if (resetImporton) {
-        for (uint i = 0; i < nImportonsPerThread; i++)
-            importonList[importonIndex+i].isHit = false;
-    }
+    for (uint i = 0; i < nImportonsPerThread; i++)
+        importonList[importonIndex+i].reset();
 
     Intersection *  intersection  = pixelSample.intersection;
-    BSDF         *  bsdf          = intersection->bsdf();
+    BSDF            bsdf          = intersection->bsdf();
     // other importons
     for (uint i = 0; i < nImportonsPerThread; i++) {
         // do not re-shoot if this importon is valid
@@ -185,7 +189,7 @@ RT_PROGRAM void shootImportons()
         float3 wi;
         float  probability;
         float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
-        bsdf->sampleF(pixelSample.wo, &wi, sample, &probability);
+        bsdf.sampleF(pixelSample.wo, &wi, sample, &probability);
         if (probability == 0.0f) continue;
 
         // trace
@@ -217,13 +221,11 @@ RT_PROGRAM void shootImportons()
  */
 RT_PROGRAM void shootPhotons()
 {
-    if(launchIndex.x == 0 && launchIndex.y == 0)
-    rtPrintf("========== photon shooting pass ==========\n");
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     uint sampleIndex = nSamplesPerThread * offset;
     uint photonIndex = nPhotonsPerThread * offset;
 
-    // reset photon list
+    // Clear photon list.
     for (uint i = 0; i < nPhotonsPerThread; i++)
         photonList[photonIndex+i].reset();
 
@@ -231,8 +233,8 @@ RT_PROGRAM void shootPhotons()
     NormalRayPayload payload;
     uint depth = 0;
     float3 wo, wi, flux;
-    Intersection *  intersection  = NULL;
-    BSDF         *  bsdf          = NULL;
+    Intersection * intersection  = NULL;
+    BSDF bsdf;
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
@@ -252,7 +254,7 @@ RT_PROGRAM void shootPhotons()
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
             // remember that we are now shooting rays from a light
             // thus wo and wi must be swapped
-            float3 f = bsdf->sampleF(wi, &wo, sample, &probability);
+            float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
             flux = pairwiseMul(f, flux) * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
@@ -296,9 +298,7 @@ RT_PROGRAM void shootPhotons()
  */
 RT_PROGRAM void gatherPhotons()
 {
-    if(launchIndex.x == 0 && launchIndex.y == 0)
-    rtPrintf("========== final gathering pass ==========\n");
-    // Do not have to gather photons if pixel sample is not hit.
+    // Do not have to gather photons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!pixelSample.isHit) return;
 
@@ -321,12 +321,12 @@ RT_PROGRAM void gatherPhotons()
                 if (photon.flags == Photon::Null)
                     stackNode = stack[--stackPosition];
                 else {
-                    Intersection *  intersection  = importon.intersection;
-                    BSDF         *  bsdf          = intersection->bsdf();
+                    Intersection * intersection  = importon.intersection;
+                    BSDF bsdf = intersection->bsdf();
                     float3 diff = intersection->dg()->point - photon.position;
                     float distanceSquared = dot(diff, diff);
                     if (distanceSquared < importon.radiusSquared) {
-                        float3 f = bsdf->f(importon.wo, photon.wi);
+                        float3 f = bsdf.f(importon.wo, photon.wi);
                         flux += pairwiseMul(f, photon.flux);
                         ++nAccumulatedPhotons;
                     }
@@ -376,9 +376,8 @@ RT_PROGRAM void gatherPhotons()
         }
     }
 
-    Intersection *  intersection  = pixelSample.intersection;
-    BSDF         *  bsdf          = intersection->bsdf();
-//    Matrix4x4 * worldToObject = intersection.worldToObject();
+    Intersection * intersection  = pixelSample.intersection;
+    BSDF bsdf = intersection->bsdf();
     unsigned int nValidImportons = 0;
     float3 indirect = make_float3(0.0f);
     for (uint i = 0; i < nImportonsPerThread; i++) {
@@ -388,7 +387,7 @@ RT_PROGRAM void gatherPhotons()
 //            float3 wo = transformVector(*worldToObject, pixelSample.wo);
 //            float3 wi = transformVector(*worldToObject, -importon.wo);
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
-            float3 f = bsdf->f(pixelSample.wo, -importon.wo);
+            float3 f = bsdf.f(pixelSample.wo, -importon.wo);
             indirect += importon.weight *
                 dot(intersection->dg()->normal, -importon.wo) *
                 pairwiseMul(f, Li);
@@ -407,12 +406,18 @@ RT_PROGRAM void gatherPhotons()
 //            }
         }
     }
-    indirect = indirect / nEmittedPhotons / nValidImportons;
-//    /*TODO*/
+    if (nValidImportons != 0)
+        indirect = indirect / nEmittedPhotons / nValidImportons;
+    /*TODO*/
 //    if (launchIndex.x == 449 && launchIndex.y == 252) {
 //        rtPrintf("indirect: "); dump(indirect); rtPrintf("\n");
 //    }
 
     /*TODO*/
-    outputBuffer[launchIndex] = make_float4(indirect, 1.0f);
+    if (frameCount % 10 == 9) {
+        float  frame = static_cast<float>(frameCount / 10);
+        float4 color = make_float4(pixelSample.direct + indirect, 1.0f);
+        outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * color +
+            (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
+    }
 }   /* -----  end of function gatherPhotons  ----- */

@@ -74,6 +74,8 @@ RT_PROGRAM void handleNormalRayClosestHit()
     Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, index);
     normalRayPayload.m_intersection = intersection;
 
+    intersection->m_material = GET_MATERIAL(Matte, materialIndex);
+
     // Differential geometry.
     DifferentialGeometry * dg = intersection->dg();
     *dg = geometricDG;
@@ -91,14 +93,13 @@ RT_PROGRAM void handleNormalRayClosestHit()
 //        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
 //    }
 
-    // BSDF
-    BSDF * bsdf = intersection->bsdf();
-    *bsdf = BSDF(*dg, geometricDG.normal);
-
-
-    // BxDFs
-    bsdf->m_nBxDFs = 1;
-    Matte * material = GET_MATERIAL(Matte, materialIndex);
-    Lambertian * lambertian = reinterpret_cast<Lambertian *>(&bsdf->m_bxdfList[0]);
-    *lambertian = Lambertian(material->m_kd);
+//    // BSDF
+//    BSDF * bsdf = intersection->bsdf();
+//    *bsdf = BSDF(*dg, geometricDG.normal);
+//
+//    // BxDFs
+//    bsdf->m_nBxDFs = 1;
+//    Matte * material = GET_MATERIAL(Matte, materialIndex);
+//    Lambertian * lambertian = reinterpret_cast<Lambertian *>(&bsdf->m_bxdfList[0]);
+//    *lambertian = Lambertian(material->m_kd);
 }   /* -----  end of function handleNormalRayClosestHit  ----- */
