@@ -61,11 +61,11 @@ class IGPPMRenderer : public Renderer {
         };
 
         typedef struct PixelSample {
-            unsigned int   isHit;
-            Intersection   intersection;
-            optix::float3  wo;
-            optix::float3  direct;
-            optix::float3  indirect;
+            unsigned int    isHit;
+            Intersection *  intersection;
+            optix::float3   wo;
+            optix::float3   direct;
+            optix::float3   indirect;
 
             __device__ __inline__ void reset()
             {
@@ -74,13 +74,13 @@ class IGPPMRenderer : public Renderer {
         } PixelSample ;
 
         typedef struct Importon {
-            unsigned int   isHit;
-            float          weight;
-            Intersection   intersection;
-            optix::float3  wo;
-            optix::float3  flux;
-            unsigned int   nPhotons;
-            float          radiusSquared;
+            unsigned int    isHit;
+            float           weight;
+            Intersection *  intersection;
+            optix::float3   wo;
+            optix::float3   flux;
+            unsigned int    nPhotons;
+            float           radiusSquared;
 
             __device__ __inline__ void reset()
             {

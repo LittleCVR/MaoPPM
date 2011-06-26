@@ -109,14 +109,14 @@ RT_PROGRAM void generatePixelSamples()
     if (!pixelSample.isHit) return;
 
     // Fill pixel sample data if hit.
-    pixelSample.intersection  = payload.intersection;
+    pixelSample.intersection  = payload.intersection();
     pixelSample.wo            = -ray.direction;
     pixelSample.direct        = make_float3(0.0f);
 
     /* TODO: move this task to the light class */
     // Evaluate direct illumination.
     float3 Li;
-    Intersection * intersection = &pixelSample.intersection;
+    Intersection * intersection = pixelSample.intersection;
     {
         const Light * light = &lightList[0];
         float3 shadowRayDirection = light->position - intersection->dg()->point;
@@ -173,7 +173,7 @@ RT_PROGRAM void shootImportons()
             importonList[importonIndex+i].isHit = false;
     }
 
-    Intersection *  intersection  = &pixelSample.intersection;
+    Intersection *  intersection  = pixelSample.intersection;
     BSDF         *  bsdf          = intersection->bsdf();
     // other importons
     for (uint i = 0; i < nImportonsPerThread; i++) {
@@ -198,7 +198,7 @@ RT_PROGRAM void shootImportons()
 
         // importon
         importon.weight         = 1.0f / probability;
-        importon.intersection   = payload.intersection;
+        importon.intersection   = payload.intersection();
         importon.wo             = -wi;
         importon.flux           = make_float3(0.0f);
         importon.nPhotons       = 0;
@@ -265,7 +265,7 @@ RT_PROGRAM void shootPhotons()
         rtTrace(rootObject, ray, payload);
         if (!payload.isHit) continue;
         wi = -wo;
-        intersection  = &payload.intersection;
+        intersection  = payload.intersection();
         bsdf          = intersection->bsdf();
 
         // create photon
@@ -321,7 +321,7 @@ RT_PROGRAM void gatherPhotons()
                 if (photon.flags == Photon::Null)
                     stackNode = stack[--stackPosition];
                 else {
-                    Intersection *  intersection  = &importon.intersection;
+                    Intersection *  intersection  = importon.intersection;
                     BSDF         *  bsdf          = intersection->bsdf();
                     float3 diff = intersection->dg()->point - photon.position;
                     float distanceSquared = dot(diff, diff);
@@ -376,7 +376,7 @@ RT_PROGRAM void gatherPhotons()
         }
     }
 
-    Intersection *  intersection  = &pixelSample.intersection;
+    Intersection *  intersection  = pixelSample.intersection;
     BSDF         *  bsdf          = intersection->bsdf();
 //    Matrix4x4 * worldToObject = intersection.worldToObject();
     unsigned int nValidImportons = 0;

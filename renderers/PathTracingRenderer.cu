@@ -111,7 +111,7 @@ RT_PROGRAM void trace()
 
         ++depth;
         wo = -wi;
-        intersection = &payload.intersection;
+        intersection = payload.intersection();
         bsdf = intersection->bsdf();
 
         /* TODO: move this task to the light class */

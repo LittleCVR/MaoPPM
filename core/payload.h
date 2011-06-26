@@ -23,6 +23,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "reflection.h"
+#include    "utility.h"
 #include    "Intersection.h"
 
 
@@ -39,19 +40,29 @@ enum RayType {
 };
 
 class RayPayload {
-    public:
-        unsigned int  isHit;
-
+#ifdef __CUDACC__
     public:
         __device__ __inline__ void reset()
         {
             isHit = false;
         }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
+    public:
+        unsigned int  isHit;
 };
 
 class NormalRayPayload : public RayPayload {
+#ifdef __CUDACC__
     public:
-        Intersection  intersection;
+        __device__ __inline__ Intersection * intersection()
+        {
+            return m_intersection;
+        }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
+    public:  // should be private
+        Intersection *  m_intersection;
 };
 
 class ShadowRayPayload : public RayPayload {
