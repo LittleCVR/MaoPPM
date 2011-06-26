@@ -40,21 +40,8 @@ namespace MaoPPM {
  */
 class Material {
     public:
-        enum Type {
-            Matte  = 1 << 0
-        };
-
-    public:
-        Material(Type type) : m_type(type) { /* EMPTY */ }
+        Material() { /* EMPTY */ }
         ~Material() { /* EMPTY */ }
-
-#ifdef __CUDACC__
-    public:
-        __device__ __inline__ Type type() const { return m_type; }
-#endif  /* -----  #ifdef __CUDACC__  ----- */
-
-    private:
-        Type  m_type;
 };  /* -----  end of class Material  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

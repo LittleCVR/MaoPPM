@@ -42,23 +42,8 @@ namespace MaoPPM {
  */
 class Matte : public Material {
     public:
-        Matte(optix::float3 kd) : Material(Material::Matte), m_kd(kd) { /* EMPTY */ }
+        Matte(optix::float3 kd) : m_kd(kd) { /* EMPTY */ }
         ~Matte() { /* EMPTY */ }
-
-#ifdef __CUDACC__
-    public:
-        __device__ __inline__ BSDF bsdf(const DifferentialGeometry & dg) const
-        {
-            // BSDF
-            BSDF b(dg, dg.normal);
-            // BxDFs
-            b.m_nBxDFs = 1;
-            Lambertian * lambertian = reinterpret_cast<Lambertian *>(&b.m_bxdfList[0]);
-            *lambertian = Lambertian(m_kd);
-            // Return.
-            return b;
-        }
-#endif  /* -----  end of #ifdef __CUDACC__  ----- */
 
     public:
         optix::float3   m_kd;

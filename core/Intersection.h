@@ -41,10 +41,9 @@ class Intersection {
     public:
         __device__ __inline__ DifferentialGeometry * dg() { return &m_dg; }
 
-        __device__ __inline__ BSDF bsdf()
+        __device__ __inline__ BSDF * bsdf()
         {
-            if (m_material->type() & Material::Matte)
-                return reinterpret_cast<Matte *>(m_material)->bsdf(m_dg);
+            return reinterpret_cast<BSDF *>(m_bsdf);
         }
 
         __device__ __inline__ optix::Matrix4x4 worldToObject() const
@@ -56,13 +55,11 @@ class Intersection {
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
-    public:
-//    private:
+    private:
         DifferentialGeometry  m_dg;
-        Material *            m_material;
-//        // Can't use BSDF directly here because nvcc would say:
-//        // can't generate code for non empty constructors or destructors on device
-//        char  m_bsdf [sizeof(BSDF)];
+        // Can't use BSDF directly here because nvcc would say:
+        // can't generate code for non empty constructors or destructors on device
+        char  m_bsdf [sizeof(BSDF)];
 };  /* -----  end of class Intersection  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
