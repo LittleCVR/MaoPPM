@@ -16,8 +16,8 @@
  * =============================================================================
  */
 
-#ifndef PPM_RENDERER_H
-#define PPM_RENDERER_H
+#ifndef IGPPM_RENDERER_PPM_RENDERER_H
+#define IGPPM_RENDERER_PPM_RENDERER_H
 
 /*----------------------------------------------------------------------------
  *  header files from OptiX
@@ -28,6 +28,9 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "reflection.h"
+#include    "DifferentialGeometry.h"
+#include    "Intersection.h"
 #include    "Renderer.h"
 
 
@@ -40,49 +43,58 @@ namespace MaoPPM {
  * =============================================================================
  */
 class PPMRenderer : public Renderer {
+    public:
+        static const unsigned int  DEFAULT_N_PHOTONS_WANTED  = 256*256*4;
+        static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
+        static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
+
     public:     // methods
         PPMRenderer(Scene * scene = NULL);
         ~PPMRenderer();
 
     public:
-        enum Pass { PixelSamplingPass, PhotonShootingPass, GatheringPass };
-        unsigned int nPasses() const { return 3; }
-
-        enum RayType { PixelSamplingRay, PhotonShootingRay, GatheringRay };
-        unsigned int nRayTypes() const { return 3; }
-
-#define PHOTON_WIDTH        128
-#define PHOTON_HEIGHT       128
-
-#define PIXEL_SAMPLE_HIT    1
-
-#define PHOTON_COUNT        4
-#define PHOTON_NULL         0
-#define PHOTON_LEAF         1
-#define AXIS_X              2 
-#define AXIS_Y              4
-#define AXIS_Z              8
+        static const unsigned int  N_PASSES  = 3;
+        enum Pass {
+            PixelSamplingPass, PhotonShootingPass, DensityEstimationPass
+        };
 
         typedef struct PixelSample {
-            optix::uint     flags;
-            optix::float3   position;
-            optix::float3   incidentDirection;
-            optix::float3   normal;
+            unsigned int    isHit;
+            Intersection *  intersection;
+            optix::float3   wo;
+            optix::float3   direct;
             optix::float3   flux;
-            int             material;
-            optix::float3   Kd;
-            optix::float3   Ks;
-            float           exponent;
-            optix::uint     nPhotons;
+            unsigned int    nPhotons;
             float           radiusSquared;
+
+            __device__ __inline__ void reset()
+            {
+                isHit   = false;
+                direct  = optix::make_float3(0.0f);
+            }
         } PixelSample ;
 
         typedef struct Photon {
-            optix::float3   position;
-            optix::float3   flux;
-            optix::float3   normal;                     /* the surface normal */
-            optix::float3   incidentDirection;          /* pointed outward */
-            optix::uint     axis;
+            optix::float3  position;  // photon position
+            optix::float3  wi;        // incident direction
+            optix::float3  flux;      // photon flux
+
+            enum Flags {
+                Null      = 0,
+                Leaf      = 1 << 0,
+                AxisX     = 1 << 1,
+                AxisY     = 1 << 2,
+                AxisZ     = 1 << 3,
+                Direct    = 1 << 4,
+                Indirect  = 1 << 5
+            };
+            unsigned int   flags;     // for KdTree
+
+            __device__ __inline__ void reset()
+            {
+                flags  = Null;
+                flux   = optix::make_float3(0.0f);
+            }
 
             static bool positionXComparator(const Photon & photon1, const Photon & photon2)
             {
@@ -98,49 +110,25 @@ class PPMRenderer : public Renderer {
             }
         } Photon ;
 
-        typedef struct PixelSamplingRayPayload {
-            float           attenuation;
-        } PixelSamplingRayPayload ;
-
-        typedef struct PhotonShootingRayPayload {
-            optix::uint     nPhotons;
-            optix::uint     photonIndexBase;
-            optix::uint     sampleIndexBase;
-            float           attenuation;
-            optix::uint     depth;
-            optix::float3   flux;
-        } PhotonShootingRayPayload ;
-
-        typedef struct GatheringRayPayload {
-            float   attenuation;
-        } GatheringRayPayload ;
-
-        void setMaterialPrograms(const std::string & name,
-                optix::Material & material);
-
-    public:     // methods
-        void    init();
-        void    render(const Scene::RayGenCameraData & cameraData);
-        void    resize(unsigned int width, unsigned int height);
-
-    private:    // methods
-        void    initPixelSamplingPassData();
-        void    initImportonShootingPassData();
-        void    initPhotonShootingPassData();
-
     private:
         void createPhotonMap();
         void buildPhotonMapAcceleration(Photon * photonList,
                 optix::uint start, optix::uint end, Photon * photonMap,
                 optix::uint root, optix::float3 bbMin, optix::float3 bbMax);
 
-    private:    // attributes
-        optix::Buffer           m_pixelSampleList;
-        optix::Buffer           m_importonMap;
-        optix::uint             m_nEmittedPhotons;
-        optix::Buffer           m_photonList;
-        optix::Buffer           m_photonMap;
+    public:
+        void    init();
+        void    resize(unsigned int width, unsigned int height);
+        void    render(const Scene::RayGenCameraData & cameraData);
+
+    private:
+        unsigned int   m_nPhotonsWanted;
+        unsigned int   m_nPhotonsPerThread;
+        unsigned int   m_nEmittedPhotons;
+        optix::Buffer  m_pixelSampleList;
+        optix::Buffer  m_photonMap;
+        unsigned int   m_frame;
 };  /* -----  end of class PPMRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
-#endif  /* -----  #ifndef PPM_RENDERER_H  ----- */
+#endif  /* -----  #ifndef IGPPM_RENDERER_PPM_RENDERER_H  ----- */

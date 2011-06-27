@@ -125,8 +125,8 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         context()["cameraW"]->setFloat(cameraData.W);
     }
 
-    if (m_frame % 10 == 0)
-        m_nEmittedPhotons = 0;
+//    if (m_frame % 5 == 0)
+//        m_nEmittedPhotons = 0;
     context()["frameCount"]->setUint(m_frame++);
 
     // pixel sample
@@ -157,6 +157,20 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
+
+    // Dump average radius.
+    const Importon * importonList = static_cast<Importon *>(m_importonList->map());
+    float averageRadiusSquared = 0.0f;
+    uint  nImportons           = 0;
+    for (unsigned int i = 0; i < launchSize.x * launchSize.y * m_nImportonsPerThread; ++i) {
+        if (importonList[i].isHit) {
+            averageRadiusSquared += importonList[i].radiusSquared;
+            ++nImportons;
+        }
+    }
+    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
+            averageRadiusSquared / static_cast<float>(nImportons));
+    m_importonList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
@@ -215,7 +229,7 @@ void IGPPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
     }
     if (end - start == 1) {
         // Create a leaf photon.
-        photonList[start].flags = Photon::Leaf;
+        photonList[start].flags |= Photon::Leaf;
         photonMap[root] = photonList[start];
         return;
     }
@@ -245,7 +259,7 @@ void IGPPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
         nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionZComparator);
     else
         assert(false);  // This should never happen.
-    photonList[median].flags = axis;
+    photonList[median].flags |= axis;
     photonMap[root] = photonList[median];
 
     // Calculate new bounding box.

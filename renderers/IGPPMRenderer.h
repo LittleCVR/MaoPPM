@@ -44,8 +44,8 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 8;
-        static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*2;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
+        static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
 
@@ -90,7 +90,6 @@ class IGPPMRenderer : public Renderer {
 
         typedef struct Photon {
             optix::float3  position;  // photon position
-            optix::float3  normal;    // surface normal
             optix::float3  wi;        // incident direction
             optix::float3  flux;      // photon flux
 

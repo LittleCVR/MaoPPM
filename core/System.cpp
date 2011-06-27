@@ -35,9 +35,9 @@
  *  header files of our own
  *-----------------------------------------------------------------------------*/
 #include    "Scene.h"
-#include    "PathTracingRenderer.h"
-//#include    "PPMRenderer.h"
 #include    "IGPPMRenderer.h"
+#include    "PathTracingRenderer.h"
+#include    "PPMRenderer.h"
 
 /*-----------------------------------------------------------------------------
  *  namespace
@@ -143,8 +143,8 @@ void System::parseArguments(int argc, char ** argv)
                 cerr << "Specified renderer: " << rendererType << "." << endl;
                 if (rendererType == "PathTracing")
                     m_renderer = new PathTracingRenderer;
-//                else if (rendererType == "PPM")
-//                    m_renderer = new PPMRenderer;
+                else if (rendererType == "PPM")
+                    m_renderer = new PPMRenderer;
                 else if (rendererType == "IGPPM")
                     m_renderer = new IGPPMRenderer;
                 else {

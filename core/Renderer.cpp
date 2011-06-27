@@ -67,7 +67,7 @@ void Renderer::init()
     // Local heap for GPU.
     /* TODO: remove hard coded size */
     m_localHeap = context()->createBuffer(
-            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_BYTE, 256 * 1024 * 1024);
+            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_BYTE, 512 * 1024 * 1024);
     context()["localHeap"]->set(m_localHeap);
     m_localHeapPointer = context()->createBuffer(
             RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER, 1);

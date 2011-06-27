@@ -1,12 +1,12 @@
 /*
  * =============================================================================
  *
- *       Filename:  IGPPMRenderer.cu
+ *       Filename:  PPMRenderer.cu
  *
- *    Description:  The Importons Guided Progressive Photon Map Renderer.
+ *    Description:  
  *
  *        Version:  1.0
- *        Created:  2011-06-21 08:02:37
+ *        Created:  2011-06-27 11:09:25
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
@@ -16,7 +16,7 @@
  * =============================================================================
  */
 
-#include    "IGPPMRenderer.h"
+#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
@@ -40,9 +40,8 @@ using namespace MaoPPM;
 
 
 
-typedef IGPPMRenderer::PixelSample  PixelSample;
-typedef IGPPMRenderer::Importon     Importon;
-typedef IGPPMRenderer::Photon       Photon;
+typedef PPMRenderer::PixelSample  PixelSample;
+typedef PPMRenderer::Photon       Photon;
 
 
 
@@ -52,14 +51,12 @@ rtDeclareVariable(uint2, launchSize ,              , );
 rtBuffer<float4,      2>  outputBuffer;
 rtBuffer<Light,       1>  lightList;
 rtBuffer<PixelSample, 2>  pixelSampleList;
-rtBuffer<Importon,    1>  importonList;
 rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
 rtBuffer<float,       1>  sampleList;
 
 rtDeclareVariable(uint, frameCount         , , );
 rtDeclareVariable(uint, nSamplesPerThread  , , );
-rtDeclareVariable(uint, nImportonsPerThread, , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
 rtDeclareVariable(uint, nEmittedPhotons    , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
@@ -113,9 +110,13 @@ RT_PROGRAM void generatePixelSamples()
     if (!pixelSample.isHit) return;
 
     // Fill pixel sample data if hit.
-    pixelSample.intersection  = payload.intersection();
-    pixelSample.wo            = -ray.direction;
-    pixelSample.direct        = make_float3(0.0f);
+    pixelSample.intersection   = payload.intersection();
+    pixelSample.wo             = -ray.direction;
+    pixelSample.direct         = make_float3(0.0f);
+    pixelSample.flux           = make_float3(0.0f);
+    pixelSample.nPhotons       = 0;
+    /* TODO: hard coded */
+    pixelSample.radiusSquared  = 32.0f;
 
     /* TODO: move this task to the light class */
     // Evaluate direct illumination.
@@ -152,64 +153,6 @@ RT_PROGRAM void generatePixelSamples()
 
     pixelSample.direct = Li;
 }   /* -----  end of function generatePixelSamples  ----- */
-
-
-
-/* 
- * ===  FUNCTION  ==============================================================
- *         Name:  shootImportons
- *  Description:  
- * =============================================================================
- */
-RT_PROGRAM void shootImportons()
-{
-    if (frameCount != 0) return;
-
-    // Does not have to shoot importons if pixel sample was not hit.
-    PixelSample & pixelSample = pixelSampleList[launchIndex];
-    if (!pixelSample.isHit) return;
-
-    // Prepare offset variables.
-    uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
-    uint sampleIndex   = offset * nSamplesPerThread;
-    uint importonIndex = offset * nImportonsPerThread;
-
-    for (uint i = 0; i < nImportonsPerThread; i++)
-        importonList[importonIndex+i].reset();
-
-    Intersection *  intersection  = pixelSample.intersection;
-    BSDF         *  bsdf          = intersection->bsdf();
-    // other importons
-    for (uint i = 0; i < nImportonsPerThread; i++) {
-        // do not re-shoot if this importon is valid
-        Importon & importon = importonList[importonIndex++];
-        if (importon.isHit) continue;
-
-        // sample direction
-        float3 wi;
-        float  probability;
-        float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
-        bsdf->sampleF(pixelSample.wo, &wi, sample, &probability);
-        if (probability == 0.0f) continue;
-
-        // trace
-        Ray ray(intersection->dg()->point, wi, NormalRay, rayEpsilon);
-        NormalRayPayload payload;
-        payload.reset();
-        rtTrace(rootObject, ray, payload);
-        importon.isHit = payload.isHit;
-        if (!importon.isHit) continue;
-
-        // importon
-        importon.weight         = 1.0f / probability;
-        importon.intersection   = payload.intersection();
-        importon.wo             = -wi;
-        importon.flux           = make_float3(0.0f);
-        importon.nPhotons       = 0;
-        /*TODO*/
-        importon.radiusSquared  = 32.0f;
-    }
-}   /* -----  end of function shootImportons  ----- */
 
 
 
@@ -273,9 +216,9 @@ RT_PROGRAM void shootPhotons()
         // create photon
         Photon & photon = photonList[photonIndex+i];
         if (depth == 0)
-            photon.flags |= IGPPMRenderer::Photon::Direct;
+            photon.flags |= Photon::Direct;
         else
-            photon.flags |= IGPPMRenderer::Photon::Indirect;
+            photon.flags |= Photon::Indirect;
         photon.position = intersection->dg()->point;
         photon.wi       = wi;
         photon.flux     = flux;
@@ -291,133 +234,82 @@ RT_PROGRAM void shootPhotons()
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  gatherPhotons
+ *         Name:  
  *  Description:  
  * =============================================================================
  */
-RT_PROGRAM void gatherPhotons()
+RT_PROGRAM void estimateDensity()
 {
     // Do not have to gather photons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!pixelSample.isHit) return;
 
-    uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
-    uint importonIndex = nImportonsPerThread * offset;
-
     /* TODO: move this task to the KdTree class */
     // Compute indirect illumination.
-    for (uint i = 0; i < nImportonsPerThread; ++i) {
-        Importon & importon = importonList[importonIndex+i];
-        float3 flux = make_float3(0.0f);
-        uint nAccumulatedPhotons = 0;
-        if (importon.isHit) {
-            uint stack[32];
-            uint stackPosition = 0;
-            uint stackNode     = 0;
-            stack[stackPosition++] = 0;
-            do {
-                const Photon & photon = photonMap[stackNode];
-                if (photon.flags == Photon::Null)
+    float3 flux = make_float3(0.0f);
+    uint nAccumulatedPhotons = 0;
+    {
+        uint stack[32];
+        uint stackPosition = 0;
+        uint stackNode     = 0;
+        stack[stackPosition++] = 0;
+        do {
+            const Photon & photon = photonMap[stackNode];
+            if (photon.flags == Photon::Null)
+                stackNode = stack[--stackPosition];
+            else {
+                Intersection * intersection  = pixelSample.intersection;
+                BSDF * bsdf = intersection->bsdf();
+                float3 diff = intersection->dg()->point - photon.position;
+                float distanceSquared = dot(diff, diff);
+                // Do not gather direct photons.
+                if (!(photon.flags & Photon::Direct) &&
+                        distanceSquared < pixelSample.radiusSquared)
+                {
+                    float3 f = bsdf->f(pixelSample.wo, photon.wi);
+                    flux += pairwiseMul(f, photon.flux);
+                    ++nAccumulatedPhotons;
+                }
+
+                if (photon.flags & Photon::Leaf)
                     stackNode = stack[--stackPosition];
                 else {
-                    Intersection * intersection  = importon.intersection;
-                    BSDF * bsdf = intersection->bsdf();
-                    float3 diff = intersection->dg()->point - photon.position;
-                    float distanceSquared = dot(diff, diff);
-                    if (distanceSquared < importon.radiusSquared) {
-                        float3 f = bsdf->f(importon.wo, photon.wi);
-                        flux += pairwiseMul(f, photon.flux);
-                        ++nAccumulatedPhotons;
-                    }
+                    float d;
+                    if      (photon.flags & Photon::AxisX)  d = diff.x;
+                    else if (photon.flags & Photon::AxisY)  d = diff.y;
+                    else                                     d = diff.z;
 
-                    if (photon.flags & Photon::Leaf)
-                        stackNode = stack[--stackPosition];
-                    else {
-                        float d;
-                        if      (photon.flags & Photon::AxisX)  d = diff.x;
-                        else if (photon.flags & Photon::AxisY)  d = diff.y;
-                        else                                    d = diff.z;
-
-                        // Calculate the next child selector. 0 is left, 1 is right.
-                        int selector = d < 0.0f ? 0 : 1;
-                        if (d*d < importon.radiusSquared)
-                            stack[stackPosition++] = (stackNode << 1) + 2 - selector;
-                        stackNode = (stackNode << 1) + 1 + selector;
-                    }
+                    // Calculate the next child selector. 0 is left, 1 is right.
+                    int selector = d < 0.0f ? 0 : 1;
+                    if (d*d < pixelSample.radiusSquared)
+                        stack[stackPosition++] = (stackNode << 1) + 2 - selector;
+                    stackNode = (stackNode << 1) + 1 + selector;
                 }
-            } while (stackNode != 0) ;
-
-            // Compute new N, R.
-            /* TODO: let alpha be configurable */
-            float alpha = 0.7f;
-            float R2 = importon.radiusSquared;
-            float N = importon.nPhotons;
-            float M = static_cast<float>(nAccumulatedPhotons) ;
-            float newN = N + alpha*M;
-            importon.nPhotons = newN;
-
-            float reductionFactor2 = 1.0f;
-            float newR2 = R2;
-            if (M != 0) {
-                reductionFactor2 = (N + alpha*M) / (N + M);
-                newR2 = R2 * reductionFactor2;
-                importon.radiusSquared = newR2;
             }
+        } while (stackNode != 0) ;
 
-            // Compute indirect flux.
-            float3 newFlux = (importon.flux + flux) * reductionFactor2;
-            importon.flux = newFlux;
+        // Compute new N, R.
+        /* TODO: let alpha be configurable */
+        float alpha = 0.7f;
+        float R2 = pixelSample.radiusSquared;
+        float N = pixelSample.nPhotons;
+        float M = static_cast<float>(nAccumulatedPhotons) ;
+        float newN = N + alpha*M;
+        pixelSample.nPhotons = newN;
 
-//            /* TODO: remove these debug lines */
-//            if (launchIndex.x == 449 && launchIndex.y == 252) {
-//                rtPrintf("import flux: "); dump(importon.flux); rtPrintf("\n");
-//            }
+        float reductionFactor2 = 1.0f;
+        float newR2 = R2;
+        if (M != 0) {
+            reductionFactor2 = (N + alpha*M) / (N + M);
+            newR2 = R2 * reductionFactor2;
+            pixelSample.radiusSquared = newR2;
         }
+
+        // Compute indirect flux.
+        float3 newFlux = (pixelSample.flux + flux) * reductionFactor2;
+        pixelSample.flux = newFlux;
     }
 
-    Intersection * intersection  = pixelSample.intersection;
-    BSDF         * bsdf          = intersection->bsdf();
-    unsigned int nValidImportons = 0;
-    float3 indirect = make_float3(0.0f);
-    for (uint i = 0; i < nImportonsPerThread; i++) {
-        Importon & importon = importonList[importonIndex+i];
-        if (importon.isHit) {
-            ++nValidImportons;
-//            float3 wo = transformVector(*worldToObject, pixelSample.wo);
-//            float3 wi = transformVector(*worldToObject, -importon.wo);
-            float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
-            float3 f = bsdf->f(pixelSample.wo, -importon.wo);
-            indirect += importon.weight *
-                dot(intersection->dg()->normal, -importon.wo) *
-                pairwiseMul(f, Li);
-//            /*TODO*/
-//            if (importon.isHit == 99) {
-//                float nImportons = static_cast<float>(pixelSample.nImportons);
-//                pixelSample.indirect = (nImportons / (nImportons + 1.0f)) * pixelSample.indirect +
-//                    (1.0f / (nImportons + 1.0f)) * L;
-//                importon.isHit = false;
-//            } else {
-//                indirect += L;
-//            }
-//            /*TODO*/
-//            if (launchIndex.x == 449 && launchIndex.y == 252) {
-//                rtPrintf("indirect: "); dump(indirect); rtPrintf("\n");
-//            }
-        }
-    }
-    if (nValidImportons != 0)
-        indirect = indirect / nEmittedPhotons / nValidImportons;
-    /*TODO*/
-//    if (launchIndex.x == 449 && launchIndex.y == 252) {
-//        rtPrintf("indirect: "); dump(indirect); rtPrintf("\n");
-//    }
-
-//    /*TODO*/
-//    if (frameCount % 5 == 4) {
-//        float  frame = static_cast<float>(frameCount / 5);
-//        float4 color = make_float4(pixelSample.direct + indirect, 1.0f);
-//        outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * color +
-//            (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
-//    }
+    float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
     outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

@@ -30,8 +30,8 @@
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
+#include    "payload.h"
 #include    "Scene.h"
-#include    "SceneBuilder.h"
 
 /*----------------------------------------------------------------------------
  *  using namespaces
@@ -42,9 +42,12 @@ using namespace MaoPPM;
 
 
 
-PPMRenderer::PPMRenderer(Scene * scene) : Renderer(scene)
+PPMRenderer::PPMRenderer(Scene * scene) : Renderer(scene),
+    m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED)
 {
-    /* EMPTY */
+    m_nPhotonsPerThread = m_nPhotonsWanted /
+        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH /
+        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT;
 }   /* -----  end of method PPMRenderer::PPMRenderer  ----- */
 
 
@@ -56,19 +59,142 @@ PPMRenderer::~PPMRenderer()
 
 
 
+void PPMRenderer::init()
+{
+    Renderer::init();
+
+    debug("sizeof(PixelSample) = \033[01;31m%4d\033[00m.\n", sizeof(PixelSample));
+    debug("sizeof(Photon)      = \033[01;31m%4d\033[00m.\n", sizeof(Photon));
+
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
+
+    // buffers
+    m_pixelSampleList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
+    m_pixelSampleList->setElementSize(sizeof(PixelSample));
+    m_pixelSampleList->setSize(width(), height());
+    context()["pixelSampleList"]->set(m_pixelSampleList);
+
+    m_photonMap = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
+    m_photonMap->setElementSize(sizeof(Photon));
+    m_photonMap->setSize(m_nPhotonsWanted);
+    context()["photonList"]->set(m_photonMap);
+    context()["photonMap"]->set(m_photonMap);
+    debug("\033[01;33mphotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
+            sizeof(Photon) * m_nPhotonsWanted);
+
+    // variables
+    context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
+    context()["nEmittedPhotons"]->setUint(0);
+
+    // programs
+    context()->setEntryPointCount(N_PASSES);
+    setExceptionProgram(PixelSamplingPass);
+    setExceptionProgram(PhotonShootingPass);
+    setExceptionProgram(DensityEstimationPass);
+    setRayGenerationProgram(PixelSamplingPass,     "PPMRenderer.cu", "generatePixelSamples");
+    setRayGenerationProgram(PhotonShootingPass,    "PPMRenderer.cu", "shootPhotons");
+    setRayGenerationProgram(DensityEstimationPass, "PPMRenderer.cu", "estimateDensity");
+    setMissProgram(NormalRay, "ray.cu", "handleNormalRayMiss");
+}   /* -----  end of method PPMRenderer::init  ----- */
+
+
+
+void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
+{
+    uint  nSamplesPerThread = 0;
+    uint2 launchSize = make_uint2(0, 0);
+
+    if (scene()->isCameraChanged()) {
+        m_frame = 0;
+        m_nEmittedPhotons = 0;
+
+        scene()->setIsCameraChanged(false);
+        context()["cameraPosition"]->setFloat(cameraData.eye);
+        context()["cameraU"]->setFloat(cameraData.U);
+        context()["cameraV"]->setFloat(cameraData.V);
+        context()["cameraW"]->setFloat(cameraData.W);
+    }
+
+    context()["frameCount"]->setUint(m_frame++);
+
+    // pixel sample
+    debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
+    launchSize = make_uint2(width(), height());
+    unsigned int pixelSamplingPassLocalHeapSize =
+        launchSize.x * launchSize.y * sizeof(Intersection);
+    debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            pixelSamplingPassLocalHeapSize);
+    setLocalHeapPointer(0);
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 2;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+
+    // Dump average radius.
+    const PixelSample * pixelSampleList = static_cast<PixelSample *>(m_pixelSampleList->map());
+    float averageRadiusSquared = 0.0f;
+    uint  nPixelSamples        = 0;
+    for (unsigned int i = 0; i < launchSize.x * launchSize.y; ++i) {
+        if (pixelSampleList[i].isHit) {
+            averageRadiusSquared += pixelSampleList[i].radiusSquared;
+            ++nPixelSamples;
+        }
+    }
+    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
+            averageRadiusSquared / static_cast<float>(nPixelSamples));
+    m_pixelSampleList->unmap();
+
+    // photon
+    debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
+    launchSize = make_uint2(
+            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH,
+            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT);
+    unsigned int photonShootingPassLocalHeapSize =
+        launchSize.x * launchSize.y * m_nPhotonsPerThread * sizeof(Intersection);
+    debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            photonShootingPassLocalHeapSize);
+    unsigned int photonShootingPassLocalHeapOffset = pixelSamplingPassLocalHeapSize;
+    setLocalHeapPointer(photonShootingPassLocalHeapOffset);
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 4 * m_nPhotonsPerThread;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
+    createPhotonMap();
+
+    // gathering
+    debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
+    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    context()->launch(DensityEstimationPass, launchSize.x, launchSize.y);
+}   /* -----  end of method PPMRenderer::render  ----- */
+
+
+
+void PPMRenderer::resize(unsigned int width, unsigned int height)
+{
+    // Call parent's resize(...).
+    Renderer::resize(width, height);
+    m_pixelSampleList->setSize(width, height);
+}   /* -----  end of method PPMRenderer::doResize  ----- */
+
+
+
 void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
         uint start, uint end, Photon * photonMap,
         uint root, float3 bbMin, float3 bbMax)
 {
     if (end - start == 0) {
         // Make a fake photon.
-        photonMap[root].axis = PHOTON_NULL;
-        photonMap[root].flux = make_float3(0.0f);
+        photonMap[root].flags = Photon::Null;
+        photonMap[root].flux  = make_float3(0.0f);
         return;
     }
     if (end - start == 1) {
         // Create a leaf photon.
-        photonList[start].axis = PHOTON_LEAF;
+        photonList[start].flags |= Photon::Leaf;
         photonMap[root] = photonList[start];
         return;
     }
@@ -78,27 +204,27 @@ void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
     float3 bbDiff = bbMax - bbMin;
     if (bbDiff.x > bbDiff.y) {
         if (bbDiff.x > bbDiff.z)
-            axis = AXIS_X;
+            axis = Photon::AxisX;
         else
-            axis = AXIS_Z;
+            axis = Photon::AxisZ;
     } else {
         if (bbDiff.y > bbDiff.z)
-            axis = AXIS_Y;
+            axis = Photon::AxisY;
         else
-            axis = AXIS_Z;
+            axis = Photon::AxisZ;
     }
 
     // Partition the photon list.
     uint median = (start + end) / 2;
-    if (axis == AXIS_X)
+    if (axis == Photon::AxisX)
         nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionXComparator);
-    else if (axis == AXIS_Y)
+    else if (axis == Photon::AxisY)
         nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionYComparator);
-    else if (axis == AXIS_Z)
+    else if (axis == Photon::AxisZ)
         nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionZComparator);
     else
         assert(false);  // This should never happen.
-    photonList[median].axis = axis;
+    photonList[median].flags |= axis;
     photonMap[root] = photonList[median];
 
     // Calculate new bounding box.
@@ -106,15 +232,15 @@ void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
     float3 rightMin = bbMin;
     float3 midPoint = photonMap[root].position;
     switch (axis) {
-        case AXIS_X:
+        case Photon::AxisX:
             rightMin.x = midPoint.x;
             leftMax.x  = midPoint.x;
             break;
-        case AXIS_Y:
+        case Photon::AxisY:
             rightMin.y = midPoint.y;
             leftMax.y  = midPoint.y;
             break;
-        case AXIS_Z:
+        case Photon::AxisZ:
             rightMin.z = midPoint.z;
             leftMax.z  = midPoint.z;
             break;
@@ -132,144 +258,31 @@ void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
 void PPMRenderer::createPhotonMap()
 {
     RTsize photonListSize = 0;
-    m_photonList->getSize(photonListSize);
+    m_photonMap->getSize(photonListSize);
     Photon * validPhotonList = new Photon [photonListSize];
 
     // count valid photons & build bounding box
-    uint nValidPhotons = 0;
+    uint nValidPhotons = 0, nDirectPhotons = 0;
     float3 bbMin = make_float3(+std::numeric_limits<float>::max());
     float3 bbMax = make_float3(-std::numeric_limits<float>::max());
-    Photon * photonListPtr = static_cast<Photon *>(m_photonList->map());
+    Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
     for (uint i = 0; i < static_cast<uint>(photonListSize); i++)
         if (fmaxf(photonListPtr[i].flux) > 0.0f) {
             validPhotonList[nValidPhotons] = photonListPtr[i];
             bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
             bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
+            if (validPhotonList[nValidPhotons].flags & Photon::Direct)
+                ++nDirectPhotons;
             ++nValidPhotons;
         }
-    m_photonList->unmap();
-    m_nEmittedPhotons += nValidPhotons;
+    m_nEmittedPhotons += nDirectPhotons;
+    debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
+    debug("valid  photons: \033[01;31m%u\033[00m\n", nValidPhotons);
 
     // build acceleration
-    Photon * photonMapPtr  = static_cast<Photon *>(m_photonMap->map());
+    Photon * photonMapPtr = photonListPtr;
     buildPhotonMapAcceleration(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
     delete [] validPhotonList;
 }   /* -----  end of method PPMRenderer::createPhotonMap  ----- */
-
-
-
-void PPMRenderer::init()
-{
-    Renderer::init();
-
-    context()["nEmittedPhotons"]->setUint(0u);
-
-    // init pixel sampling data, importon shooting data, and photon shooting data
-    initPixelSamplingPassData();
-    initImportonShootingPassData();
-    initPhotonShootingPassData();
-    setEntryPointPrograms("gatheringPassPrograms.cu", GatheringPass);
-    setMissProgram("gatheringPassPrograms.cu", GatheringRay, "handleGatheringRayMiss");
-}   /* -----  end of method PPMRenderer::init  ----- */
-
-
-
-void PPMRenderer::initImportonShootingPassData()
-{
-}   /* -----  end of method PPMRenderer::initImportonShootingData  ----- */
-
-
-
-void PPMRenderer::initPhotonShootingPassData()
-{
-    uint size = PHOTON_WIDTH * PHOTON_HEIGHT * PHOTON_COUNT;
-
-    // create photon buffer
-    m_photonList = context()->createBuffer(RT_BUFFER_OUTPUT);
-    m_photonList->setFormat(RT_FORMAT_USER);
-    m_photonList->setElementSize(sizeof(Photon));
-    m_photonList->setSize(size);
-    context()["photonList"]->set(m_photonList);
-
-    // create photon acceleration buffer
-    m_photonMap = context()->createBuffer(RT_BUFFER_INPUT);
-    m_photonMap->setFormat(RT_FORMAT_USER);
-    m_photonMap->setElementSize(sizeof(Photon));
-    m_photonMap->setSize(size);
-    context()["photonMap"]->set(m_photonMap);
-
-    // create photon shooting programs
-    setEntryPointPrograms("photonShootingPassPrograms.cu", PhotonShootingPass);
-    setMissProgram("photonShootingPassPrograms.cu", PhotonShootingRay, "handlePhotonShootingRayMiss");
-}   /* -----  end of method PPMRenderer::initPhotonShootingPassData  ----- */
-
-
-
-void PPMRenderer::initPixelSamplingPassData()
-{
-    // create pixel sample buffer
-    m_pixelSampleList = context()->createBuffer(RT_BUFFER_OUTPUT);
-    m_pixelSampleList->setFormat(RT_FORMAT_USER);
-    m_pixelSampleList->setElementSize(sizeof(PixelSample));
-    m_pixelSampleList->setSize(width(), height());
-    context()["pixelSampleList"]->set(m_pixelSampleList);
-
-    // create pixel sampling programs
-    setEntryPointPrograms("pixelSamplingPassPrograms.cu", PixelSamplingPass);
-    setMissProgram("pixelSamplingPassPrograms.cu", PixelSamplingRay, "handlePixelSamplingRayMiss");
-}   /* -----  end of method PPMRenderer::initPixelSamplingPassData  ----- */
-
-
-
-void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
-{
-    // re-run the pixel sampling pass if camera has changed
-    if (scene()->isCameraChanged()) {
-        m_nEmittedPhotons = 0u;
-        scene()->setIsCameraChanged(false);
-        context()["cameraPosition"]->setFloat(cameraData.eye);
-        context()["cameraU"]->setFloat(cameraData.U);
-        context()["cameraV"]->setFloat(cameraData.V);
-        context()["cameraW"]->setFloat(cameraData.W);
-        context()["launchSize"]->setUint(width(), height());
-        context()->launch(PixelSamplingPass, width(), height());
-    }
-
-    generateSamples(PHOTON_WIDTH * PHOTON_HEIGHT * PHOTON_COUNT * 2);
-    context()["launchSize"]->setUint(PHOTON_WIDTH, PHOTON_HEIGHT);
-    context()->launch(PhotonShootingPass, PHOTON_WIDTH, PHOTON_HEIGHT);
-    createPhotonMap();
-
-    context()["launchSize"]->setUint(width(), height());
-    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
-    context()->launch(GatheringPass, width(), height());
-}   /* -----  end of method PPMRenderer::render  ----- */
-
-
-
-void PPMRenderer::resize(unsigned int width, unsigned int height)
-{
-    // Call parent's resize(...).
-    Renderer::resize(width, height);
-    m_pixelSampleList->setSize(width, height);
-}   /* -----  end of method PPMRenderer::doResize  ----- */
-
-
-
-void PPMRenderer::setMaterialPrograms(const std::string & name,
-        optix::Material & material)
-{
-    if (name == "matte") {
-        string ptxPath = scene()->ptxpath("MaoPPM", "matteMaterialPPMPrograms.cu");
-        material->setClosestHitProgram(PixelSamplingRay,
-                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handlePixelSamplingRayClosestHit"));
-        material->setClosestHitProgram(PhotonShootingRay,
-                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handlePhotonShootingRayClosestHit"));
-        material->setAnyHitProgram(GatheringRay,
-                scene()->getContext()->createProgramFromPTXFile(ptxPath, "handleGatheringRayAnyHit"));
-    }
-    else if (name == "plastic") {
-    }
-}   /* -----  end of method PPMRenderer::setMaterialPrograms  ----- */

@@ -22,7 +22,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     materials/Matte.h
     renderers/IGPPMRenderer.h
     renderers/PathTracingRenderer.h
-#    renderers/PPMRenderer.h
+    renderers/PPMRenderer.h
     # source files
     core/global.cpp
     core/main.cpp
@@ -32,24 +32,16 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/System.cpp
     parsers/pbrtParser.cc
     parsers/pbrtScanner.cc
-    renderers/PathTracingRenderer.cpp
-#    renderers/PPMRenderer.cpp
     renderers/IGPPMRenderer.cpp
+    renderers/PathTracingRenderer.cpp
+    renderers/PPMRenderer.cpp
     # CUDA source files
     core/exception.cu
     core/ray.cu
     materials/Matte.cu
-#    materials/matteMaterialPathTracingPrograms.cu
-#    materials/matteMaterialPPMPrograms.cu
-#    materials/plasticMaterialPathTracingPrograms.cu
-#    materials/plasticMaterialPPMPrograms.cu
-#    passes/pathTracingPassPrograms.cu
-#    passes/pixelSamplingPassPrograms.cu
-#    passes/importonShootingPassPrograms.cu
-#    passes/photonShootingPassPrograms.cu
-#    passes/gatheringPassPrograms.cu
-    renderers/PathTracingRenderer.cu
     renderers/IGPPMRenderer.cu
+    renderers/PathTracingRenderer.cu
+    renderers/PPMRenderer.cu
     shapes/triangleMeshShapePrograms.cu
     )
 else()
