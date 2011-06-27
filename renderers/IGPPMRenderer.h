@@ -44,7 +44,7 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 16;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
@@ -139,10 +139,18 @@ class IGPPMRenderer : public Renderer {
         unsigned int   m_nImportonsPerThread;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;
+        unsigned int   m_photonShootingPassLaunchWidth;
+        unsigned int   m_photonShootingPassLaunchHeight;
         unsigned int   m_nEmittedPhotons;
         optix::Buffer  m_pixelSampleList;
         optix::Buffer  m_importonList;
         optix::Buffer  m_photonMap;
+        unsigned int   m_pixelSamplingPassLocalHeapSize;
+        unsigned int   m_importonShootingPassLocalHeapOffset;
+        unsigned int   m_importonShootingPassLocalHeapSize;
+        unsigned int   m_photonShootingPassLocalHeapOffset;
+        unsigned int   m_photonShootingPassLocalHeapSize;
+        unsigned int   m_demandLocalHeapSize;
         unsigned int   m_frame;
 };  /* -----  end of class IGPPMRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */

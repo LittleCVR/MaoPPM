@@ -124,9 +124,15 @@ class PPMRenderer : public Renderer {
     private:
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;
+        unsigned int   m_photonShootingPassLaunchWidth;
+        unsigned int   m_photonShootingPassLaunchHeight;
         unsigned int   m_nEmittedPhotons;
         optix::Buffer  m_pixelSampleList;
         optix::Buffer  m_photonMap;
+        unsigned int   m_pixelSamplingPassLocalHeapSize;
+        unsigned int   m_photonShootingPassLocalHeapOffset;
+        unsigned int   m_photonShootingPassLocalHeapSize;
+        unsigned int   m_demandLocalHeapSize;
         unsigned int   m_frame;
 };  /* -----  end of class PPMRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */

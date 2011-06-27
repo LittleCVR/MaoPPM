@@ -43,11 +43,13 @@ using namespace MaoPPM;
 
 
 PPMRenderer::PPMRenderer(Scene * scene) : Renderer(scene),
-    m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED)
+    m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
+    m_photonShootingPassLaunchWidth(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH),
+    m_photonShootingPassLaunchHeight(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT)
 {
     m_nPhotonsPerThread = m_nPhotonsWanted /
-        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH /
-        DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT;
+        m_photonShootingPassLaunchWidth /
+        m_photonShootingPassLaunchHeight;
 }   /* -----  end of method PPMRenderer::PPMRenderer  ----- */
 
 
@@ -119,12 +121,8 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     // pixel sample
     debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
-    launchSize = make_uint2(width(), height());
-    unsigned int pixelSamplingPassLocalHeapSize =
-        launchSize.x * launchSize.y * sizeof(Intersection);
-    debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
-            pixelSamplingPassLocalHeapSize);
     setLocalHeapPointer(0);
+    launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     nSamplesPerThread = 2;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
@@ -147,15 +145,10 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
+    setLocalHeapPointer(m_photonShootingPassLocalHeapOffset);
     launchSize = make_uint2(
-            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH,
-            DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT);
-    unsigned int photonShootingPassLocalHeapSize =
-        launchSize.x * launchSize.y * m_nPhotonsPerThread * sizeof(Intersection);
-    debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
-            photonShootingPassLocalHeapSize);
-    unsigned int photonShootingPassLocalHeapOffset = pixelSamplingPassLocalHeapSize;
-    setLocalHeapPointer(photonShootingPassLocalHeapOffset);
+            m_photonShootingPassLaunchWidth,
+            m_photonShootingPassLaunchHeight);
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     nSamplesPerThread = 4 * m_nPhotonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
@@ -178,6 +171,21 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
     // Call parent's resize(...).
     Renderer::resize(width, height);
     m_pixelSampleList->setSize(width, height);
+
+    // Local heap.
+    m_pixelSamplingPassLocalHeapSize =
+        width * height * sizeof(Intersection);
+    debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            m_pixelSamplingPassLocalHeapSize);
+    m_photonShootingPassLocalHeapSize =
+        m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight *
+        m_nPhotonsPerThread * sizeof(Intersection);
+    debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            m_photonShootingPassLocalHeapSize);
+    m_photonShootingPassLocalHeapOffset =  m_pixelSamplingPassLocalHeapSize;
+    m_demandLocalHeapSize =
+        m_photonShootingPassLocalHeapOffset + m_photonShootingPassLocalHeapSize;
+    setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method PPMRenderer::doResize  ----- */
 
 

@@ -81,7 +81,8 @@ RT_PROGRAM void trace()
     float3 wo, wi, L = make_float3(0.0f), throughput = make_float3(1.0f);
     /* TODO */
     Intersection * intersection = NULL;
-    BSDF         * bsdf         = NULL;
+//    BSDF         * bsdf         = NULL;
+    BSDF bsdf;
     for (uint i = 0; i < maxRayDepth; ++i) {
         // Start from camera.
         if (depth == 0) {
@@ -98,7 +99,7 @@ RT_PROGRAM void trace()
             /*TODO*/
             float  probability;
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
-            float3 f = bsdf->sampleF(wo, &wi, sample, &probability);
+            float3 f = bsdf.sampleF(wo, &wi, sample, &probability);
             if (probability == 0.0f) continue;
             throughput = pairwiseMul(f, throughput) * dot(wi, intersection->dg()->normal) / probability;
             ray = Ray(intersection->dg()->point, wi, NormalRay, rayEpsilon);
@@ -112,7 +113,7 @@ RT_PROGRAM void trace()
         ++depth;
         wo = -wi;
         intersection = payload.intersection();
-        bsdf = intersection->bsdf();
+        intersection->getBSDF(&bsdf);
 
         /* TODO: move this task to the light class */
         // Evaluate radiance.
@@ -131,7 +132,7 @@ RT_PROGRAM void trace()
             if (!shadowRayPayload.isHit)
                 Li = light.flux / (4.0f * M_PIf * distanceSquared);
 
-            float3 f = bsdf->f(wo, normalizedShadowRayDirection);
+            float3 f = bsdf.f(wo, normalizedShadowRayDirection);
             L += throughput * pairwiseMul(Li, f) * fmaxf(0.0f, dot(normalizedShadowRayDirection, intersection->dg()->normal));
         }
     }

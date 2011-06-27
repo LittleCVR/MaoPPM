@@ -146,8 +146,9 @@ RT_PROGRAM void generatePixelSamples()
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-        BSDF * bsdf = intersection->bsdf();
-        float3 f = bsdf->f(pixelSample.wo, wi);
+//        BSDF * bsdf = intersection->bsdf();
+        BSDF bsdf; intersection->getBSDF(&bsdf);
+        float3 f = bsdf.f(pixelSample.wo, wi);
         Li = pairwiseMul(f, light->flux) / (4.0f * M_PIf * distanceSquared);
     }
 
@@ -177,7 +178,8 @@ RT_PROGRAM void shootPhotons()
     uint depth = 0;
     float3 wo, wi, flux;
     Intersection * intersection  = NULL;
-    BSDF         * bsdf          = NULL;
+//    BSDF         * bsdf          = NULL;
+    BSDF bsdf;
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
@@ -197,7 +199,7 @@ RT_PROGRAM void shootPhotons()
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
             // remember that we are now shooting rays from a light
             // thus wo and wi must be swapped
-            float3 f = bsdf->sampleF(wi, &wo, sample, &probability);
+            float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
             flux = pairwiseMul(f, flux) * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
@@ -211,7 +213,7 @@ RT_PROGRAM void shootPhotons()
         if (!payload.isHit) continue;
         wi = -wo;
         intersection  = payload.intersection();
-        bsdf          = intersection->bsdf();
+        intersection->getBSDF(&bsdf);
 
         // create photon
         Photon & photon = photonList[photonIndex+i];
@@ -259,14 +261,14 @@ RT_PROGRAM void estimateDensity()
                 stackNode = stack[--stackPosition];
             else {
                 Intersection * intersection  = pixelSample.intersection;
-                BSDF * bsdf = intersection->bsdf();
+                BSDF bsdf; intersection->getBSDF(&bsdf);
                 float3 diff = intersection->dg()->point - photon.position;
                 float distanceSquared = dot(diff, diff);
                 // Do not gather direct photons.
                 if (!(photon.flags & Photon::Direct) &&
                         distanceSquared < pixelSample.radiusSquared)
                 {
-                    float3 f = bsdf->f(pixelSample.wo, photon.wi);
+                    float3 f = bsdf.f(pixelSample.wo, photon.wi);
                     flux += pairwiseMul(f, photon.flux);
                     ++nAccumulatedPhotons;
                 }

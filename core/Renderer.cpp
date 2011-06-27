@@ -65,9 +65,8 @@ void Renderer::init()
     context()["sampleList"]->set(m_sampleList);
 
     // Local heap for GPU.
-    /* TODO: remove hard coded size */
     m_localHeap = context()->createBuffer(
-            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_BYTE, 512 * 1024 * 1024);
+            RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_BYTE, DEFAULT_LOCAL_HEAP_SIZE);
     context()["localHeap"]->set(m_localHeap);
     m_localHeapPointer = context()->createBuffer(
             RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER, 1);
@@ -115,6 +114,14 @@ void Renderer::resize(unsigned int width, unsigned int height)
             sizeof(float4) * width * height);
     m_outputBuffer->setSize(width, height);
 }   /* -----  end of method Renderer::resize  ----- */
+
+
+
+void Renderer::setLocalHeapSize(unsigned int size)
+{
+    debug("\033[01;33mlocalHeap\033[00m resized to: \033[01;31m%u\033[00m bytes.\n", size);
+    m_localHeap->setSize(size);
+}
 
 
 

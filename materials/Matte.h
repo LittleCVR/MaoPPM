@@ -45,6 +45,17 @@ class Matte : public Material {
         Matte(optix::float3 kd) : m_kd(kd) { /* EMPTY */ }
         ~Matte() { /* EMPTY */ }
 
+#ifdef __CUDACC__
+    public:
+        __device__ __inline__ void getBSDF(const DifferentialGeometry & dg, BSDF * bsdf) const
+        {
+            *bsdf = BSDF(dg, dg.normal);
+            bsdf->m_nBxDFs = 1;
+            Lambertian * lambertian = reinterpret_cast<Lambertian *>(&bsdf->m_bxdfList[0]);
+            *lambertian = Lambertian(m_kd);
+        }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
     public:
         optix::float3   m_kd;
 };  /* -----  end of class Matte  ----- */

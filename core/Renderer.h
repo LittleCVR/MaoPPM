@@ -85,6 +85,7 @@ class Renderer {
          */
         void  generateSamples(const optix::uint nSamples);
 
+        void  setLocalHeapSize(unsigned int size);
         Index localHeapPointer();
         void  resetLocalHeapPointer();
         void  setLocalHeapPointer(const Index & index);
