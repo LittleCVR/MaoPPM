@@ -28,9 +28,6 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "reflection.h"
-#include    "DifferentialGeometry.h"
-#include    "Intersection.h"
 #include    "Renderer.h"
 
 

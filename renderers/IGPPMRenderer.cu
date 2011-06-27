@@ -28,8 +28,8 @@
  *----------------------------------------------------------------------------*/
 #include    "global.h"
 #include    "payload.h"
-#include    "reflection.h"
 #include    "utility.h"
+#include    "BSDF.h"
 #include    "Light.h"
 
 /*----------------------------------------------------------------------------
@@ -148,7 +148,7 @@ RT_PROGRAM void generatePixelSamples()
 //        BSDF * bsdf = intersection->bsdf();
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = pairwiseMul(f, light->flux) / (4.0f * M_PIf * distanceSquared);
+        Li = f * light->flux / (4.0f * M_PIf * distanceSquared);
     }
 
     pixelSample.direct = Li;
@@ -259,7 +259,7 @@ RT_PROGRAM void shootPhotons()
             // thus wo and wi must be swapped
             float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
-            flux = pairwiseMul(f, flux) * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
+            flux = f * flux * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
             // remember that this transform's transpose is actually its inverse
             ray = Ray(intersection->dg()->point, wo, NormalRay, rayEpsilon);
@@ -330,7 +330,7 @@ RT_PROGRAM void gatherPhotons()
                     float distanceSquared = dot(diff, diff);
                     if (distanceSquared < importon.radiusSquared) {
                         float3 f = bsdf.f(importon.wo, photon.wi);
-                        flux += pairwiseMul(f, photon.flux);
+                        flux += f * photon.flux;
                         ++nAccumulatedPhotons;
                     }
 
@@ -392,9 +392,8 @@ RT_PROGRAM void gatherPhotons()
 //            float3 wi = transformVector(*worldToObject, -importon.wo);
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
             float3 f = bsdf.f(pixelSample.wo, -importon.wo);
-            indirect += importon.weight *
-                dot(intersection->dg()->normal, -importon.wo) *
-                pairwiseMul(f, Li);
+            indirect += importon.weight * f * Li *
+                dot(intersection->dg()->normal, -importon.wo);
 //            /*TODO*/
 //            if (importon.isHit == 99) {
 //                float nImportons = static_cast<float>(pixelSample.nImportons);

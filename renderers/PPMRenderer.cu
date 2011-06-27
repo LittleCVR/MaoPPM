@@ -28,8 +28,8 @@
  *----------------------------------------------------------------------------*/
 #include    "global.h"
 #include    "payload.h"
-#include    "reflection.h"
 #include    "utility.h"
+#include    "BSDF.h"
 #include    "Light.h"
 
 /*----------------------------------------------------------------------------
@@ -149,7 +149,7 @@ RT_PROGRAM void generatePixelSamples()
 //        BSDF * bsdf = intersection->bsdf();
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = pairwiseMul(f, light->flux) / (4.0f * M_PIf * distanceSquared);
+        Li = f * light->flux / (4.0f * M_PIf * distanceSquared);
     }
 
     pixelSample.direct = Li;
@@ -201,7 +201,7 @@ RT_PROGRAM void shootPhotons()
             // thus wo and wi must be swapped
             float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
-            flux = pairwiseMul(f, flux) * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
+            flux = f * flux * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
             // remember that this transform's transpose is actually its inverse
             ray = Ray(intersection->dg()->point, wo, NormalRay, rayEpsilon);
@@ -269,7 +269,7 @@ RT_PROGRAM void estimateDensity()
                         distanceSquared < pixelSample.radiusSquared)
                 {
                     float3 f = bsdf.f(pixelSample.wo, photon.wi);
-                    flux += pairwiseMul(f, photon.flux);
+                    flux += f * photon.flux;
                     ++nAccumulatedPhotons;
                 }
 

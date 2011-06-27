@@ -28,8 +28,9 @@
  *  header files of our own
  *---------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "reflection.h"
 #include    "utility.h"
+#include    "BSDF.h"
+#include    "DifferentialGeometry.h"
 #include    "Material.h"
 #include    "Matte.h"
 #include    "Plastic.h"
@@ -37,22 +38,21 @@
 
 
 namespace MaoPPM {
+
+#define CALL_MATERIAL_VIRTUAL_FUNCTION(lvalue, op, material, function, ...) \
+    if (material->type() & Material::Matte) \
+        lvalue op reinterpret_cast<Matte *>(material)->function(__VA_ARGS__); \
+    else if (material->type() & Material::Plastic) \
+        lvalue op reinterpret_cast<Plastic *>(material)->function(__VA_ARGS__);
+
 class Intersection {
 #ifdef __CUDACC__
     public:
         __device__ __inline__ DifferentialGeometry * dg() { return &m_dg; }
 
-//        __device__ __inline__ BSDF * bsdf()
-//        {
-//            return reinterpret_cast<BSDF *>(m_bsdf);
-//        }
-
         __device__ __inline__ void getBSDF(BSDF * bsdf)
         {
-            if (m_material->type() & Material::Matte)
-                reinterpret_cast<Matte *>(m_material)->getBSDF(m_dg, bsdf);
-            else if (m_material->type() & Material::Plastic)
-                reinterpret_cast<Plastic *>(m_material)->getBSDF(m_dg, bsdf);
+            CALL_MATERIAL_VIRTUAL_FUNCTION( , , m_material, getBSDF, m_dg, bsdf);
         }
 
         __device__ __inline__ optix::Matrix4x4 worldToObject() const
@@ -67,9 +67,6 @@ class Intersection {
 //    private:
         DifferentialGeometry  m_dg;
         Material *            m_material;
-//        // Can't use BSDF directly here because nvcc would say:
-//        // can't generate code for non empty constructors or destructors on device
-//        char  m_bsdf [sizeof(BSDF)];
 };  /* -----  end of class Intersection  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

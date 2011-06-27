@@ -14,6 +14,10 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/ParameterVector.h
     core/payload.h
     core/reflection.h
+    core/BSDF.h
+    core/BxDF.h
+    core/Fresnel.h
+    core/MicrofacetDistribution.h
     core/Renderer.h
     core/SceneBuilder.h
     core/Scene.h

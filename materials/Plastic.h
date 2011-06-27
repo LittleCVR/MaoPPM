@@ -28,7 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "reflection.h"
+#include    "BSDF.h"
 #include    "Material.h"
 
 

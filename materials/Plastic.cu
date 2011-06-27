@@ -28,8 +28,8 @@
  *----------------------------------------------------------------------------*/
 #include    "global.h"
 #include    "payload.h"
-#include    "reflection.h"
 #include    "utility.h"
+#include    "BSDF.h"
 #include    "DifferentialGeometry.h"
 #include    "Intersection.h"
 

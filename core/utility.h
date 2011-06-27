@@ -74,58 +74,23 @@ __device__ __inline__ void swap(T & t1, T & t2)
     t2 = tmp;
 }
 
-__device__ __inline__ optix::float2 pairwiseAdd(
-        const optix::float2 & v1, const optix::float2 & v2)
-{
-    return optix::make_float2(v1.x+v2.x, v1.y+v2.y);
-}
-
-__device__ __inline__ optix::float3 pairwiseAdd(
-        const optix::float3 & v1, const optix::float3 & v2)
-{
-    return optix::make_float3(v1.x+v2.x, v1.y+v2.y, v1.z+v2.z);
-}
-
-__device__ __inline__ optix::float4 pairwiseAdd(
-        const optix::float4 & v1, const optix::float4 & v2)
-{
-    return optix::make_float4(v1.x+v2.x, v1.y+v2.y, v1.z+v2.z, v1.w+v2.w);
-}
-
-__device__ __inline__ optix::float2 pairwiseMul(
-        const optix::float2 & v1, const optix::float2 & v2)
-{
-    return optix::make_float2(v1.x*v2.x, v1.y*v2.y);
-}
-
-__device__ __inline__ optix::float3 pairwiseMul(
-        const optix::float3 & v1, const optix::float3 & v2)
-{
-    return optix::make_float3(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z);
-}
-
-__device__ __inline__ optix::float4 pairwiseMul(
-        const optix::float4 & v1, const optix::float4 & v2)
-{
-    return optix::make_float4(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z, v1.w*v2.w);
-}
-
 /* 
  * ===  FUNCTION  ==============================================================
  *         Name:  
  *  Description:  
  * =============================================================================
  */
-__device__ __inline__ optix::float3 transformVector(const optix::Matrix4x4 & m,
-        const optix::float3 & v)
+__device__ __inline__ optix::float3 transformVector(
+        const optix::Matrix4x4 & m, const optix::float3 & v)
 {
     return optix::make_float3(m * optix::make_float4(v, 0.0f));
 }
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  
- *  Description:  
+ *         Name:  createCoordinateSystem
+ *  Description:  Given $U, generates $V and $W that are perpendicular to $U,
+ *                also $V and $W are perpendicular to each other, too.
  * =============================================================================
  */
 __device__ __inline__ void createCoordinateSystem(const optix::float3 & U,
@@ -143,8 +108,13 @@ __device__ __inline__ void createCoordinateSystem(const optix::float3 & U,
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  
- *  Description:  
+ *         Name:  createCoordinateSystemTransform
+ *  Description:  Given $s, $t, and $n, create a transform that will transform
+ *                the regular coordinate system to $s, $t, and $n. That is,
+ *                if you use this transform to trasform (1, 0, 0), you get $s,
+ *                if you use this transform to trasform (0, 1, 0), you get $t,
+ *                and if you use this transform to transform (0, 0, 1), you get
+ *                $n.
  * =============================================================================
  */
 __device__ __inline__ optix::Matrix4x4 createCoordinateSystemTransform(
@@ -160,11 +130,11 @@ __device__ __inline__ optix::Matrix4x4 createCoordinateSystemTransform(
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  
- *  Description:  
+ *         Name:  printFloat3
+ *  Description:  Helper function to dump float3.
  * =============================================================================
  */
-__device__ __inline__ void dump(const optix::float3 & v)
+__device__ __inline__ void printFloat3(const optix::float3 & v)
 {
     rtPrintf("%+4.4f %+4.4f %+4.4f", v.x, v.y, v.z);
 }
