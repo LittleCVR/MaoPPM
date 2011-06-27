@@ -113,57 +113,71 @@ void IGPPMRenderer::init()
 
 void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
-    uint  nSamplesPerThread = 0;
-    uint2 launchSize = make_uint2(0, 0);
-
+    bool reset = false;
     if (scene()->isCameraChanged()) {
+        reset = true;
         m_frame = 0;
         m_nEmittedPhotons = 0;
-
-        scene()->setIsCameraChanged(false);
         context()["cameraPosition"]->setFloat(cameraData.eye);
         context()["cameraU"]->setFloat(cameraData.U);
         context()["cameraV"]->setFloat(cameraData.V);
         context()["cameraW"]->setFloat(cameraData.W);
+        scene()->setIsCameraChanged(false);
     }
+
+    // Timing.
+    clock_t startClock, endClock;
+
+    uint  nSamplesPerThread = 0;
+    uint2 launchSize = make_uint2(0, 0);
 
 //    if (m_frame % 5 == 0)
 //        m_nEmittedPhotons = 0;
     context()["frameCount"]->setUint(m_frame++);
 
-    // pixel sample
-    debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
-    setLocalHeapPointer(0);
-    launchSize = make_uint2(width(), height());
-    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 2;
-    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-    context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+    if (reset) {
+        // pixel sample
+        debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
+        setLocalHeapPointer(0);
+        launchSize = make_uint2(width(), height());
+        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+        nSamplesPerThread = 2;
+        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+        startClock  = clock();
+        context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+        endClock    = clock();
+        debug("\033[01;36mFinished launching pixel sampling pass in %f secs.\033[00m\n",
+                static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
-    // importon
-    debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
-    setLocalHeapPointer(m_importonShootingPassLocalHeapOffset);
-    launchSize = make_uint2(width(), height());
-    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 3 * m_nImportonsPerThread;
-    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-    context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
-
-    // Dump average radius.
-    const Importon * importonList = static_cast<Importon *>(m_importonList->map());
-    float averageRadiusSquared = 0.0f;
-    uint  nImportons           = 0;
-    for (unsigned int i = 0; i < launchSize.x * launchSize.y * m_nImportonsPerThread; ++i) {
-        if (importonList[i].isHit) {
-            averageRadiusSquared += importonList[i].radiusSquared;
-            ++nImportons;
-        }
+        // importon
+        debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
+        setLocalHeapPointer(m_importonShootingPassLocalHeapOffset);
+        launchSize = make_uint2(width(), height());
+        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+        nSamplesPerThread = 3 * m_nImportonsPerThread;
+        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+        startClock  = clock();
+        context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
+        endClock    = clock();
+        debug("\033[01;36mFinished launching importon shooting pass in %f secs.\033[00m\n",
+                static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
     }
-    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
-            averageRadiusSquared / static_cast<float>(nImportons));
-    m_importonList->unmap();
+
+//    // Dump average radius.
+//    const Importon * importonList = static_cast<Importon *>(m_importonList->map());
+//    float averageRadiusSquared = 0.0f;
+//    uint  nImportons           = 0;
+//    for (unsigned int i = 0; i < launchSize.x * launchSize.y * m_nImportonsPerThread; ++i) {
+//        if (importonList[i].isHit) {
+//            averageRadiusSquared += importonList[i].radiusSquared;
+//            ++nImportons;
+//        }
+//    }
+//    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
+//            averageRadiusSquared / static_cast<float>(nImportons));
+//    m_importonList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
@@ -175,15 +189,29 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     nSamplesPerThread = 4 * m_nPhotonsPerThread;
     generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    startClock  = clock();
     context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
+    endClock    = clock();
+    debug("\033[01;36mFinished launching photon shooting pass in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
+
+    debug("\033[01;36mPrepare to build photon map.\033[00m\n");
+    startClock  = clock();
     createPhotonMap();
+    endClock    = clock();
+    debug("\033[01;36mFinished building photon map in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
     // gathering
     debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    startClock  = clock();
     context()->launch(FinalGatheringPass, launchSize.x, launchSize.y);
+    endClock    = clock();
+    debug("\033[01;36mFinished launching final gathering pass in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 }   /* -----  end of method IGPPMRenderer::render  ----- */
 
 
@@ -206,11 +234,13 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
         width * height * sizeof(Intersection);
     debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_pixelSamplingPassLocalHeapSize);
+
     m_importonShootingPassLocalHeapSize =
         width * height * m_nImportonsPerThread * sizeof(Intersection);
     debug("ImportonShootingPass demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_importonShootingPassLocalHeapSize);
     m_importonShootingPassLocalHeapOffset = m_pixelSamplingPassLocalHeapSize;
+
     m_photonShootingPassLocalHeapSize =
         m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight *
         m_nPhotonsPerThread * sizeof(Intersection);
@@ -218,6 +248,7 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
             m_photonShootingPassLocalHeapSize);
     m_photonShootingPassLocalHeapOffset =
         m_importonShootingPassLocalHeapOffset + m_importonShootingPassLocalHeapSize;
+
     m_demandLocalHeapSize =
         m_photonShootingPassLocalHeapOffset + m_photonShootingPassLocalHeapSize;
     setLocalHeapSize(m_demandLocalHeapSize);

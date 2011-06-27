@@ -108,6 +108,8 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     if (scene()->isCameraChanged()) {
         m_frame = 0;
+        context()["frameCount"]->setUint(m_frame);
+
         m_nEmittedPhotons = 0;
 
         scene()->setIsCameraChanged(false);
@@ -115,33 +117,33 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         context()["cameraU"]->setFloat(cameraData.U);
         context()["cameraV"]->setFloat(cameraData.V);
         context()["cameraW"]->setFloat(cameraData.W);
+
+        // pixel sample
+        debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
+        setLocalHeapPointer(0);
+        launchSize = make_uint2(width(), height());
+        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+        nSamplesPerThread = 2;
+        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+        context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
     }
 
     context()["frameCount"]->setUint(m_frame++);
 
-    // pixel sample
-    debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
-    setLocalHeapPointer(0);
-    launchSize = make_uint2(width(), height());
-    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 2;
-    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-    context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
-
-    // Dump average radius.
-    const PixelSample * pixelSampleList = static_cast<PixelSample *>(m_pixelSampleList->map());
-    float averageRadiusSquared = 0.0f;
-    uint  nPixelSamples        = 0;
-    for (unsigned int i = 0; i < launchSize.x * launchSize.y; ++i) {
-        if (pixelSampleList[i].isHit) {
-            averageRadiusSquared += pixelSampleList[i].radiusSquared;
-            ++nPixelSamples;
-        }
-    }
-    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
-            averageRadiusSquared / static_cast<float>(nPixelSamples));
-    m_pixelSampleList->unmap();
+//    // Dump average radius.
+//    const PixelSample * pixelSampleList = static_cast<PixelSample *>(m_pixelSampleList->map());
+//    float averageRadiusSquared = 0.0f;
+//    uint  nPixelSamples        = 0;
+//    for (unsigned int i = 0; i < launchSize.x * launchSize.y; ++i) {
+//        if (pixelSampleList[i].isHit) {
+//            averageRadiusSquared += pixelSampleList[i].radiusSquared;
+//            ++nPixelSamples;
+//        }
+//    }
+//    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
+//            averageRadiusSquared / static_cast<float>(nPixelSamples));
+//    m_pixelSampleList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
