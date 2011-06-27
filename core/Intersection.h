@@ -32,6 +32,7 @@
 #include    "utility.h"
 #include    "Material.h"
 #include    "Matte.h"
+#include    "Plastic.h"
 
 
 
@@ -48,8 +49,10 @@ class Intersection {
 
         __device__ __inline__ void getBSDF(BSDF * bsdf)
         {
-            if (m_material->type() && Material::Matte)
+            if (m_material->type() & Material::Matte)
                 reinterpret_cast<Matte *>(m_material)->getBSDF(m_dg, bsdf);
+            else if (m_material->type() & Material::Plastic)
+                reinterpret_cast<Plastic *>(m_material)->getBSDF(m_dg, bsdf);
         }
 
         __device__ __inline__ optix::Matrix4x4 worldToObject() const

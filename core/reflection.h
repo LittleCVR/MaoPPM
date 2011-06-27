@@ -85,10 +85,37 @@ class FresnelNoOp : public Fresnel {
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 };
+//class FresnelConductor : public Fresnel {
+//#ifdef __CUDACC__
+//    public:
+//        __device__ __inline__ FresnelConductor(
+//                const optix::float3 & eta, const optix::float3 & k) : Fresnel(Fresnel::Conductor),
+//            m_eta(eta), m_k(k) { /* EMPTY */ }   
+//
+//        __device__ __inline__ optix::float3 evaluate(float cosi) const
+//        {
+//            cosi = fabsf(cosi);
+//            const optix::float3 & eta = m_eta;
+//            const optix::float3 & k   = m_k;
+//            optix::float3 tmp = (eta*eta + k*k) * cosi*cosi;
+//            optix::float3 Rparl2 = (tmp - (2.f * eta * cosi) + 1.f) /
+//                (tmp + (2.f * eta * cosi) + 1.f); 
+//            optix::float3 tmp_f = eta*eta + k*k;
+//            optix::float3 Rperp2 =
+//                (tmp_f - (2.f * eta * cosi) + cosi*cosi) /
+//                (tmp_f + (2.f * eta * cosi) + cosi*cosi);
+//            return (Rparl2 + Rperp2) / 2.f;
+//        }
+//#endif  /* -----  #ifdef __CUDACC__  ----- */
+//
+//    private:
+//        optix::float3  m_eta;
+//        optix::float3  m_k;
+//};
 class FresnelDielectric : public Fresnel {
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ FresnelDielectric(float ei, float et) : Fresnel(Dielectric),
+        __device__ __inline__ FresnelDielectric(float ei, float et) : Fresnel(Fresnel::Dielectric),
             eta_i(ei), eta_t(et) { /* EMPTY */ }
 
         __device__ __inline__ optix::float3 evaluate(float cosi) const 
@@ -99,7 +126,7 @@ class FresnelDielectric : public Fresnel {
             // Compute indices of refraction for dielectric
             bool entering = cosi > 0.0f;
             float ei = eta_i, et = eta_t;
-            if (!entering) std::swap(ei, et);
+            if (!entering) swap(ei, et);
 
             // Compute _sint_ using Snell's law
             float sint = ei/et * sqrtf(max(0.0f, 1.0f - cosi*cosi));
@@ -115,7 +142,7 @@ class FresnelDielectric : public Fresnel {
                 optix::float3 Rperp = optix::make_float3(
                         ((ei * cosi) - (et * cost)) /
                         ((ei * cosi) + (et * cost)));
-                return (pairwiseMul(Rparl, Rparl) + pairwiseMul(Rperp, Rperp)) / 2.0f;
+                return (Rparl*Rparl + Rperp*Rperp) / 2.0f;
             }
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
@@ -147,12 +174,12 @@ class BxDF {
             All             = AllReflection | AllTransmission,
             // BxDF types
             Lambertian      = 1 << 0,
+            Microfacet      = 1 << 1
         };  /* -----  end of enum BxDF::Type  ----- */
 
 #ifdef __CUDACC__
     public:
         __device__ __inline__ BxDF(Type type) : m_type(type) { /* EMPTY */ }
-        __device__ __inline__ ~BxDF() { /* EMPTY */ }
 
     public:
         __device__ __inline__ Type type() const { return m_type; }
@@ -306,28 +333,21 @@ class Microfacet : public BxDF {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ Microfacet(const optix::float3 & reflectance, const Fresnel & f,
-                const MicrofacetDistribution & d) :
-            BxDF(Type(Reflection | Glossy)), R(reflectance)
-        {
-            // Fresnel.
-            if (f.type() & Fresnel::NoOp)
-                reinterpret_cast<FresnelNoOp &>(m_fresnel) =
-                    reinterpret_cast<const FresnelNoOp &>(f);
-            else if (f.type() & Fresnel::Dielectric)
-                reinterpret_cast<FresnelDielectric &>(m_fresnel) =
-                    reinterpret_cast<const FresnelDielectric &>(f);
-
-            // Distribution.
-            if (d.type() & MicrofacetDistribution::Blinn)
-                reinterpret_cast<Blinn &>(m_distribution) =
-                    reinterpret_cast<const Blinn &>(d);
-        }
+        __device__ __inline__ Microfacet(const optix::float3 & reflectance) :
+            BxDF(Type(BxDF::Microfacet | Reflection | Glossy)), R(reflectance) { /* EMPTY */ }
 
     public:
+        __device__ __inline__ MicrofacetDistribution * distribution() 
+        {
+            return reinterpret_cast<MicrofacetDistribution *>(m_distribution);
+        }
         __device__ __inline__ const MicrofacetDistribution * distribution() const
         {
             return reinterpret_cast<const MicrofacetDistribution *>(m_distribution);
+        }
+        __device__ __inline__ Fresnel * fresnel() 
+        {
+            return reinterpret_cast<Fresnel *>(m_fresnel);
         }
         __device__ __inline__ const Fresnel * fresnel() const
         {
@@ -424,6 +444,10 @@ class BSDF {
         }
 
         __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
+        __device__ __inline__ BxDF * bxdfAt(const Index & index)
+        {
+            return reinterpret_cast<BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
+        }
         __device__ __inline__ const BxDF * bxdfAt(const Index & index) const
         {
             return reinterpret_cast<const BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
@@ -445,6 +469,8 @@ class BSDF {
                 // Determine real BxDF type.
                 if (bxdf->type() & BxDF::Lambertian)
                     totalF += reinterpret_cast<const Lambertian *>(bxdf)->f(wo, wi);
+                else if (bxdf->type() & BxDF::Microfacet)
+                    totalF += reinterpret_cast<const Microfacet *>(bxdf)->f(wo, wi);
             }
             return totalF;
         }
@@ -457,9 +483,8 @@ class BSDF {
             worldToLocal(worldWo, &wo);
             /* TODO: count type */
             // Sample BxDF.
-//            unsigned int index = min(m_nBxDFs-1,
-//                    static_cast<unsigned int>(floorf(sample.x * static_cast<float>(m_nBxDFs))));
-            unsigned int index = 0;
+            unsigned int index = min(m_nBxDFs-1,
+                    static_cast<unsigned int>(floorf(sample.x * static_cast<float>(m_nBxDFs))));
             const BxDF * bxdf = bxdfAt(index);
             *probability = 1.0f / static_cast<float>(m_nBxDFs);
             // Sample f.
@@ -469,6 +494,8 @@ class BSDF {
             optix::float2 s = optix::make_float2(sample.y, sample.z);
             if (bxdf->type() & BxDF::Lambertian)
                 f = reinterpret_cast<const Lambertian *>(bxdf)->sampleF(wo, &wi, s, &prob);
+            else if (bxdf->type() & BxDF::Microfacet)
+                f = reinterpret_cast<const Microfacet *>(bxdf)->sampleF(wo, &wi, s, &prob);
             *probability *= prob;
             localToWorld(wi, worldWi);
             return f;

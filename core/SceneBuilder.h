@@ -80,6 +80,10 @@ class SceneBuilder
         void shape(const char * type, ParameterVector * parameterVector);
 
     private:    // functions
+        float findFloat(const char * name,const ParameterVector & parameterVector,
+                const float defaultValue);
+        optix::float3 findColor(const char * name, const ParameterVector & parameterVector,
+                const optix::float3 defaultValue);
         ParameterVector * findByTypeAndName(const char * type, const char * name,
                 const ParameterVector & parameterVector);
 

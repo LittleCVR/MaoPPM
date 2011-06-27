@@ -1,12 +1,12 @@
 /*
  * =============================================================================
  *
- *       Filename:  Matte.h
+ *       Filename:  Plastic.h
  *
  *    Description:  
  *
  *        Version:  1.0
- *        Created:  2011-06-20 17:59:51
+ *        Created:  2011-06-27 17:09:25
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
@@ -16,8 +16,8 @@
  * =============================================================================
  */
 
-#ifndef MAOPPM_MATERIALS_MATTE_H
-#define MAOPPM_MATERIALS_MATTE_H
+#ifndef MAOPPM_MATERIALS_PLASTIC_H
+#define MAOPPM_MATERIALS_PLASTIC_H
 
 /*----------------------------------------------------------------------------
  *  header files from OptiX
@@ -36,29 +36,39 @@
 namespace MaoPPM {
 /*
  * =============================================================================
- *        Class:  Matte
+ *        Class:  Plastic
  *  Description:  
  * =============================================================================
  */
-class Matte : public Material {
+class Plastic : public Material {
     public:
-        Matte(optix::float3 kd) : Material(Material::Matte), m_kd(kd) { /* EMPTY */ }
-        ~Matte() { /* EMPTY */ }
+        Plastic(const optix::float3 & kd, const optix::float3 ks, const float roughness) :
+            Material(Material::Plastic), m_kd(kd), m_ks(ks), m_roughness(roughness) { /* EMPTY */ }
 
 #ifdef __CUDACC__
     public:
         __device__ __inline__ void getBSDF(const DifferentialGeometry & dg, BSDF * bsdf) const
         {
             *bsdf = BSDF(dg, dg.normal);
-            bsdf->m_nBxDFs = 1;
+            bsdf->m_nBxDFs = 2;
+
             Lambertian * lambertian = reinterpret_cast<Lambertian *>(bsdf->bxdfAt(0));
             *lambertian = Lambertian(m_kd);
+
+            Microfacet * microfacet = reinterpret_cast<Microfacet *>(bsdf->bxdfAt(1));
+            *microfacet = Microfacet(m_ks);
+            FresnelDielectric * fresnel = reinterpret_cast<FresnelDielectric *>(microfacet->fresnel());
+            *fresnel = FresnelDielectric(1.5f, 1.0f);
+            Blinn * blinn = reinterpret_cast<Blinn *>(microfacet->distribution());
+            *blinn = Blinn(1.0f / m_roughness);
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
     public:
-        optix::float3   m_kd;
-};  /* -----  end of class Matte  ----- */
+        optix::float3  m_kd;
+        optix::float3  m_ks;
+        float          m_roughness;
+};  /* -----  end of class METAL  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
-#endif  /* -----  #ifndef MAOPPM_MATERIALS_MATTE_H  ----- */
+#endif  /* -----  #ifndef MAOPPM_MATERIALS_PLASTIC_H  ----- */

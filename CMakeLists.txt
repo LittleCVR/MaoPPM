@@ -20,6 +20,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/System.h
     core/utility.h
     materials/Matte.h
+    materials/Plastic.h
     renderers/IGPPMRenderer.h
     renderers/PathTracingRenderer.h
     renderers/PPMRenderer.h
@@ -39,6 +40,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/exception.cu
     core/ray.cu
     materials/Matte.cu
+    materials/Plastic.cu
     renderers/IGPPMRenderer.cu
     renderers/PathTracingRenderer.cu
     renderers/PPMRenderer.cu

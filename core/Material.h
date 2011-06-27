@@ -41,11 +41,12 @@ namespace MaoPPM {
 class Material {
     public:
         enum Type {
-            Matte  = 1 << 0
+            Matte    = 1 << 1,
+            Plastic  = 1 << 2
         };  /* -----  end of enum Material::Type  ----- */
 
     public:
-        Material() { /* EMPTY */ }
+        Material(Type type) : m_type(type) { /* EMPTY */ }
         ~Material() { /* EMPTY */ }
 
 #ifdef __CUDACC__

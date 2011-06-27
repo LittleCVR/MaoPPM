@@ -66,6 +66,14 @@ namespace MaoPPM {
 #define LAUNCH_OFFSET_2D(launchIndex, launchSize) \
     (launchIndex.y * launchSize.x + launchIndex.x)
 
+template<typename T>
+__device__ __inline__ void swap(T & t1, T & t2)
+{
+    T tmp = t1;
+    t1 = t2;
+    t2 = tmp;
+}
+
 __device__ __inline__ optix::float2 pairwiseAdd(
         const optix::float2 & v1, const optix::float2 & v2)
 {

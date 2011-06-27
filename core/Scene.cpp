@@ -144,7 +144,7 @@ void Scene::initDebug()
     if (rc != RT_SUCCESS)
         throw Exception::makeException(rc, context()->get());
 
-    if (computeCapability.x < 1 || computeCapability.y < 1)
+    if (computeCapability.x < 1 && computeCapability.y < 1)
         debug("Compute capability is SM %d.%d, debug mode cannot be enabled.\n",
                 computeCapability.x, computeCapability.y);
     else {

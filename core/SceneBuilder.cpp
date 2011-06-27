@@ -30,6 +30,7 @@
 #include    "payload.h"
 #include    "Light.h"
 #include    "Matte.h"
+#include    "Plastic.h"
 #include    "Renderer.h"
 
 /*-----------------------------------------------------------------------------
@@ -191,14 +192,9 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
 {
     optix::Material material = m_scene->getContext()->createMaterial();
     if (strcmp(type, "matte") == 0) {
-        ParameterVector * colorVector = findByTypeAndName("color", "Kd", *parameterVector);
-        if (colorVector == NULL) {
-            cerr << "Material \"matte\" must contains color Kd." << endl;
-            exit(EXIT_FAILURE);
-        }
+        float3 kd = findColor("Kd", *parameterVector, make_float3(0.25f));
         // material
-        float * color = static_cast<float *>(colorVector->data);
-        Matte matte(make_float3(color[0], color[1], color[2]));
+        Matte matte(kd);
         Index index = m_scene->copyToHeap(&matte, sizeof(matte));
         material["materialIndex"]->setUserData(sizeof(index), &index);
         // program
@@ -210,19 +206,20 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
         material->setAnyHitProgram(ShadowRay, program2);
     }
     else if (strcmp(type, "plastic") == 0) {
-        ParameterVector * Kd = findByTypeAndName("color", "Kd", *parameterVector);
-        ParameterVector * Ks = findByTypeAndName("color", "Ks", *parameterVector);
-        ParameterVector * roughness = findByTypeAndName("float", "roughness", *parameterVector);
-
-        material["Kd"]->setFloat(make_float3(
-                    static_cast<float *>(Kd->data)[0],
-                    static_cast<float *>(Kd->data)[1],
-                    static_cast<float *>(Kd->data)[2]));
-        material["Ks"]->setFloat(make_float3(
-                    static_cast<float *>(Ks->data)[0],
-                    static_cast<float *>(Ks->data)[1],
-                    static_cast<float *>(Ks->data)[2]));
-        material["exponent"]->setFloat(1.0f / static_cast<float *>(roughness->data)[0]);
+        float3 kd = findColor("Kd", *parameterVector, make_float3(0.25f));
+        float3 ks = findColor("Ks", *parameterVector, make_float3(0.25f));
+        float  roughness = findFloat("roughness", *parameterVector, 0.1);
+        // material
+        Plastic plastic(kd, ks, roughness);
+        Index index = m_scene->copyToHeap(&plastic, sizeof(plastic));
+        material["materialIndex"]->setUserData(sizeof(index), &index);
+        // program
+        std::string ptxPath = m_scene->ptxpath("MaoPPM", "Plastic.cu");
+        Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
+        material->setClosestHitProgram(NormalRay, program);
+        ptxPath = m_scene->ptxpath("MaoPPM", "ray.cu");
+        Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
+        material->setAnyHitProgram(ShadowRay, program2);
     }
     m_currentState.material = material;
 
@@ -296,6 +293,40 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
 
     // delete
     deleteParameterVector(parameterVector);
+}
+
+
+
+float SceneBuilder::findFloat(const char * name,
+        const ParameterVector & parameterVector,
+        const float defaultValue)
+{
+    ParameterVector * v = findByTypeAndName("float", name, parameterVector);
+
+    if (v == NULL)
+        return defaultValue;
+    else {
+        float * p = static_cast<float *>(v->data);
+        return p[0];
+    }
+}
+
+
+
+optix::float3 SceneBuilder::findColor(const char * name,
+        const ParameterVector & parameterVector,
+        const optix::float3 defaultValue)
+{
+    ParameterVector * v = findByTypeAndName("color", name, parameterVector);
+    if (v == NULL)
+        v = findByTypeAndName("spectrum", name, parameterVector);
+
+    if (v == NULL)
+        return defaultValue;
+    else {
+        float * p = static_cast<float *>(v->data);
+        return make_float3(p[0], p[1], p[2]);
+    }
 }
 
 
