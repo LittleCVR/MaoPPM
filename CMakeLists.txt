@@ -48,7 +48,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     renderers/IGPPMRenderer.cu
     renderers/PathTracingRenderer.cu
     renderers/PPMRenderer.cu
-    shapes/triangleMeshShapePrograms.cu
+    shapes/TriangleMesh.cu
     )
 else()
   # GLUT or OpenGL not found

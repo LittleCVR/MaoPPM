@@ -113,8 +113,6 @@ class Lambertian : public BxDF {
             BxDF(BxDF::Type(BxDF::Lambertian | Reflection | Diffuse)),
             m_reflectance(reflectance) { /* EMPTY */ }
 
-        __device__ __inline__ ~Lambertian() { /* EMPTY */ }
-
         __device__ __inline__ optix::float3 f(
                 const optix::float3 & wo, const optix::float3 & wi) const
         {

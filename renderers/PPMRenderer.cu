@@ -269,6 +269,9 @@ RT_PROGRAM void estimateDensity()
                         distanceSquared < pixelSample.radiusSquared)
                 {
                     float3 f = bsdf.f(pixelSample.wo, photon.wi);
+//                    float  s = 1.0f - distanceSquared / pixelSample.radiusSquared;
+//                    float  k = 3.0f * s * s / M_PIf;
+//                    flux += k * f * photon.flux;
                     flux += f * photon.flux;
                     ++nAccumulatedPhotons;
                 }

@@ -34,6 +34,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "utility.h"
 #include    "ParameterVector.h"
 
 
@@ -80,10 +81,16 @@ class SceneBuilder
         void shape(const char * type, ParameterVector * parameterVector);
 
     private:    // functions
-        float findFloat(const char * name,const ParameterVector & parameterVector,
+        float findOneFloat(const char * name, const ParameterVector & parameterVector,
                 const float defaultValue);
-        optix::float3 findColor(const char * name, const ParameterVector & parameterVector,
+        optix::float3 findOneColor(const char * name, const ParameterVector & parameterVector,
                 const optix::float3 defaultValue);
+        // Why does this function return float* not int*?
+        // Because ParameterVector does not store integer, it stores only float.
+        float * findIntegerList(const char * name, const ParameterVector & parameterVector,
+                unsigned int * nFound);
+        float * findPointList(const char * name, const ParameterVector & parameterVector,
+                unsigned int * nFound);
         ParameterVector * findByTypeAndName(const char * type, const char * name,
                 const ParameterVector & parameterVector);
 

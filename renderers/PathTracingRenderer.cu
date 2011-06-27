@@ -81,7 +81,6 @@ RT_PROGRAM void trace()
     float3 wo, wi, L = make_float3(0.0f), throughput = make_float3(1.0f);
     /* TODO */
     Intersection * intersection = NULL;
-//    BSDF         * bsdf         = NULL;
     BSDF bsdf;
     for (uint i = 0; i < maxRayDepth; ++i) {
         // Start from camera.

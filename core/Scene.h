@@ -84,13 +84,13 @@ class Scene : public SampleScene {
 #endif  /* -----  end of #ifndef NDEBUG  ----- */
 
     private:    // attributes
-        Renderer *              m_renderer;
-        InitialCameraData       m_initialCameraData;
-        RayGenCameraData        m_rayGenCameraData;
-        optix::GeometryGroup    m_rootObject;
-        optix::Buffer           m_lightList;
-        optix::Buffer           m_inputHeap;
-        Index                   m_inputHeapPointer;
+        Renderer *         m_renderer;
+        InitialCameraData  m_initialCameraData;
+        RayGenCameraData   m_rayGenCameraData;
+        optix::Group       m_rootObject;
+        optix::Buffer      m_lightList;
+        optix::Buffer      m_inputHeap;
+        Index              m_inputHeapPointer;
 };  /* -----  end of class Scene  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

@@ -38,8 +38,9 @@ rtBuffer<MaoPPM::Index,  1>  localHeapPointer;
 
 
 
-#ifdef __CUDACC__
 namespace MaoPPM {
+
+#ifdef __CUDACC__
 
 #define LOCAL_HEAP_ALLOC(type) \
     atomicAdd(&localHeapPointer[0], sizeof(type))
@@ -72,18 +73,6 @@ __device__ __inline__ void swap(T & t1, T & t2)
     T tmp = t1;
     t1 = t2;
     t2 = tmp;
-}
-
-/* 
- * ===  FUNCTION  ==============================================================
- *         Name:  
- *  Description:  
- * =============================================================================
- */
-__device__ __inline__ optix::float3 transformVector(
-        const optix::Matrix4x4 & m, const optix::float3 & v)
-{
-    return optix::make_float3(m * optix::make_float4(v, 0.0f));
 }
 
 /* 
@@ -139,7 +128,30 @@ __device__ __inline__ void printFloat3(const optix::float3 & v)
     rtPrintf("%+4.4f %+4.4f %+4.4f", v.x, v.y, v.z);
 }
 
-}   /* -----  end of namespace MaoPPM  ----- */
 #endif  /* -----  #ifdef __CUDACC__  ----- */
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  
+ *  Description:  
+ * =============================================================================
+ */
+__host__ __device__ __inline__ optix::float3 transformPoint(
+        const optix::Matrix4x4 & m, const optix::float3 & p)
+{
+    optix::float4 np = m * optix::make_float4(p, 1.0f);
+    np.x = np.x / np.w;
+    np.y = np.y / np.w;
+    np.z = np.z / np.w;
+    return make_float3(np);
+}
+
+__host__ __device__ __inline__ optix::float3 transformVector(
+        const optix::Matrix4x4 & m, const optix::float3 & v)
+{
+    return optix::make_float3(m * optix::make_float4(v, 0.0f));
+}
+
+}   /* -----  end of namespace MaoPPM  ----- */
 
 #endif  /* -----  #ifndef UTILITY_H  ----- */

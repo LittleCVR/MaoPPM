@@ -185,7 +185,7 @@ void Scene::initScene(InitialCameraData & cameraData)
     context()["inputHeap"]->set(m_inputHeap);
 
     // Initialize root object.
-    m_rootObject = context()->createGeometryGroup();
+    m_rootObject = context()->createGroup();
     context()["rootObject"]->set(m_rootObject);
     // Acceleration.
     Acceleration acceleration = context()->createAcceleration("Bvh", "Bvh");

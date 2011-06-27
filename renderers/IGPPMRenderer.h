@@ -44,7 +44,7 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 16;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;

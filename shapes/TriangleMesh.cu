@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  triangleMeshShapePrograms.cu
+ *       Filename:  TriangleMesh.cu
  *
  *    Description:  
  *

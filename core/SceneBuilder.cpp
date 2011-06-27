@@ -28,6 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "payload.h"
+#include    "utility.h"
 #include    "Light.h"
 #include    "Matte.h"
 #include    "Plastic.h"
@@ -167,15 +168,8 @@ void SceneBuilder::lightSource(const char * type, ParameterVector * parameterVec
 
     Light light;
     if (strcmp(type, "point") == 0) {
-        ParameterVector * colorVector = findByTypeAndName("color", "I", *parameterVector);
-        if (colorVector == NULL) {
-            cerr << "Light \"point\" must contains color I." << endl;
-            exit(EXIT_FAILURE);
-        }
-        float * color = static_cast<float *>(colorVector->data);
-        light.flux = make_float3(color[0], color[1], color[2]);
-        float4 position = m_currentState.transform * make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-        light.position = make_float3(position.x / position.w, position.y / position.w, position.z / position.w);
+        light.flux = findOneColor("I", *parameterVector, make_float3(1.0f));
+        light.position = transformPoint(m_currentState.transform, make_float3(0.0f));
     }
 
     Light * data = static_cast<Light *>(m_scene->m_lightList->map());
@@ -192,7 +186,7 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
 {
     optix::Material material = m_scene->getContext()->createMaterial();
     if (strcmp(type, "matte") == 0) {
-        float3 kd = findColor("Kd", *parameterVector, make_float3(0.25f));
+        float3 kd = findOneColor("Kd", *parameterVector, make_float3(0.25f));
         // material
         Matte matte(kd);
         Index index = m_scene->copyToHeap(&matte, sizeof(matte));
@@ -206,9 +200,9 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
         material->setAnyHitProgram(ShadowRay, program2);
     }
     else if (strcmp(type, "plastic") == 0) {
-        float3 kd = findColor("Kd", *parameterVector, make_float3(0.25f));
-        float3 ks = findColor("Ks", *parameterVector, make_float3(0.25f));
-        float  roughness = findFloat("roughness", *parameterVector, 0.1);
+        float3 kd = findOneColor("Kd", *parameterVector, make_float3(0.25f));
+        float3 ks = findOneColor("Ks", *parameterVector, make_float3(0.25f));
+        float  roughness = findOneFloat("roughness", *parameterVector, 0.1);
         // material
         Plastic plastic(kd, ks, roughness);
         Index index = m_scene->copyToHeap(&plastic, sizeof(plastic));
@@ -233,63 +227,74 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
 {
     Geometry geometry = m_scene->getContext()->createGeometry();
     if (strcmp(type, "trianglemesh") == 0) {
-        ParameterVector * pointList = findByTypeAndName("point", "P", *parameterVector);
-        ParameterVector * indexList = findByTypeAndName("integer", "indices", *parameterVector);
-        if (pointList == NULL) {
-            cerr << "Shape \"trianglemesh\" must contains point P." << endl;
+        unsigned int nVertices;
+        unsigned int nIndices;
+        float * vertexList = findPointList("P", *parameterVector, &nVertices);
+        float * indexList  = findIntegerList("indices", *parameterVector, &nIndices);
+        unsigned int nTriangles = nIndices / 3;
+        if (vertexList == NULL) {
+            cerr << "Shape \"trianglemesh\" must contain point P." << endl;
             exit(EXIT_FAILURE);
         }
         if (indexList == NULL) {
-            cerr << "Shape \"trianglemesh\" must contains integer indices." << endl;
+            cerr << "Shape \"trianglemesh\" must contain integer indices." << endl;
             exit(EXIT_FAILURE);
         }
 
-        geometry->setPrimitiveCount(indexList->nElements / 3);
+        geometry->setPrimitiveCount(nTriangles);
 
-        std::string ptxPath = m_scene->ptxpath("MaoPPM", "triangleMeshShapePrograms.cu");
+        std::string ptxPath = m_scene->ptxpath("MaoPPM", "TriangleMesh.cu");
         Program boundingBoxProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "boundingBox");
         geometry->setBoundingBoxProgram(boundingBoxProgram);
         Program intersectProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "intersect");
         geometry->setIntersectionProgram(intersectProgram);
 
-        Buffer vertexList = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
-        vertexList->setFormat(RT_FORMAT_FLOAT3);
-        vertexList->setSize(pointList->nElements / 3);
+        Buffer vertexBuffer = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
+        vertexBuffer->setFormat(RT_FORMAT_FLOAT3);
+        vertexBuffer->setSize(nVertices / 3);
         {
-            float3 * dst = static_cast<float3 *>(vertexList->map());
-            float  * src = static_cast<float  *>(pointList->data);
-            for (int i = 0; i < pointList->nElements / 3; ++i) {
-                dst[i].x = src[3*i+0];
-                dst[i].y = src[3*i+1];
-                dst[i].z = src[3*i+2];
+            float3 * dst = static_cast<float3 *>(vertexBuffer->map());
+            for (int i = 0; i < nVertices / 3; ++i) {
+                dst[i] = transformPoint(m_currentState.transform,
+                        make_float3(vertexList[3*i+0], vertexList[3*i+1], vertexList[3*i+2]));
             }
-            vertexList->unmap();
+            vertexBuffer->unmap();
         }
-        geometry["vertexList"]->set(vertexList);
+        geometry["vertexList"]->set(vertexBuffer);
 
-        Buffer vertexIndexList = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
-        vertexIndexList->setFormat(RT_FORMAT_UNSIGNED_INT3);
-        vertexIndexList->setSize(indexList->nElements / 3);
+        Buffer indexBuffer = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
+        indexBuffer->setFormat(RT_FORMAT_UNSIGNED_INT3);
+        indexBuffer->setSize(nIndices / 3);
         {
-            uint3 * dst = static_cast<uint3 *>(vertexIndexList->map());
-            float * src = static_cast<float *>(indexList->data);
-            for (int i = 0; i < indexList->nElements / 3; ++i) {
-                dst[i].x = static_cast<uint>(src[3*i+0]);
-                dst[i].y = static_cast<uint>(src[3*i+1]);
-                dst[i].z = static_cast<uint>(src[3*i+2]);
+            uint3 * dst = static_cast<uint3 *>(indexBuffer->map());
+            for (int i = 0; i < nIndices / 3; ++i) {
+                dst[i].x = static_cast<uint>(indexList[3*i+0]);
+                dst[i].y = static_cast<uint>(indexList[3*i+1]);
+                dst[i].z = static_cast<uint>(indexList[3*i+2]);
             }
-            vertexIndexList->unmap();
+            indexBuffer->unmap();
         }
-        geometry["vertexIndexList"]->set(vertexIndexList);
-
-        GeometryInstance geometryInstance = m_scene->getContext()->createGeometryInstance();
-        geometryInstance->setGeometry(geometry);
-        geometryInstance->setMaterialCount(1);
-        geometryInstance->setMaterial(0, m_currentState.material);
-
-        m_scene->m_rootObject->setChildCount(m_scene->m_rootObject->getChildCount() + 1);
-        m_scene->m_rootObject->setChild(m_scene->m_rootObject->getChildCount() - 1, geometryInstance);
+        geometry["vertexIndexList"]->set(indexBuffer);
     }
+
+    GeometryInstance geometryInstance = m_scene->context()->createGeometryInstance();
+    geometryInstance->setGeometry(geometry);
+    geometryInstance->setMaterialCount(1);
+    geometryInstance->setMaterial(0, m_currentState.material);
+
+    GeometryGroup geometryGroup = m_scene->context()->createGeometryGroup();
+    geometryGroup->setChildCount(1);
+    geometryGroup->setChild(0, geometryInstance);
+    // Acceleration.
+    Acceleration acceleration = m_scene->context()->createAcceleration("Bvh", "Bvh");
+    geometryGroup->setAcceleration(acceleration);
+
+//    Transform transform = m_scene->context()->createTransform();
+//    transform->setMatrix(false, m_currentState.transform.getData(), NULL);
+//    transform->setChild(geometryGroup);
+
+    m_scene->m_rootObject->setChildCount(m_scene->m_rootObject->getChildCount() + 1);
+    m_scene->m_rootObject->setChild(m_scene->m_rootObject->getChildCount() - 1, geometryGroup);
 
     // delete
     deleteParameterVector(parameterVector);
@@ -297,7 +302,7 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
 
 
 
-float SceneBuilder::findFloat(const char * name,
+float SceneBuilder::findOneFloat(const char * name,
         const ParameterVector & parameterVector,
         const float defaultValue)
 {
@@ -313,7 +318,7 @@ float SceneBuilder::findFloat(const char * name,
 
 
 
-optix::float3 SceneBuilder::findColor(const char * name,
+optix::float3 SceneBuilder::findOneColor(const char * name,
         const ParameterVector & parameterVector,
         const optix::float3 defaultValue)
 {
@@ -326,6 +331,38 @@ optix::float3 SceneBuilder::findColor(const char * name,
     else {
         float * p = static_cast<float *>(v->data);
         return make_float3(p[0], p[1], p[2]);
+    }
+}
+
+
+
+float * SceneBuilder::findIntegerList(const char * name,
+        const ParameterVector & parameterVector,
+        unsigned int * nFound)
+{
+    ParameterVector * v = findByTypeAndName("integer", name, parameterVector);
+    if (v == NULL) {
+        *nFound = 0;
+        return NULL;
+    } else {
+        *nFound = v->nElements;
+        return static_cast<float *>(v->data);
+    }
+}
+
+
+
+float * SceneBuilder::findPointList(const char * name,
+        const ParameterVector & parameterVector,
+        unsigned int * nFound)
+{
+    ParameterVector * v = findByTypeAndName("point", name, parameterVector);
+    if (v == NULL) {
+        *nFound = 0;
+        return NULL;
+    } else {
+        *nFound = v->nElements;
+        return static_cast<float *>(v->data);
     }
 }
 
