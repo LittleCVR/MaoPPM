@@ -33,10 +33,13 @@
 
 namespace MaoPPM {
 #ifdef __CUDACC__
-__device__ __inline__ float cosTheta(
-        const optix::float3 & w)
+__device__ __inline__ float cosTheta(const optix::float3 & w)
 {
     return w.z;
+}
+__device__ __inline__ float sinThetaSquared(const optix::float3 & w)
+{
+    return 1.0f - w.z*w.z;
 }
 __device__ __inline__ bool sameHemisphere(
         const optix::float3 & wo, const optix::float3 & wi)

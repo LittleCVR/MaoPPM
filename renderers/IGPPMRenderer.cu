@@ -259,7 +259,7 @@ RT_PROGRAM void shootPhotons()
             // thus wo and wi must be swapped
             float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
-            flux = f * flux * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
+            flux = f * flux * fabsf(dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
             // remember that this transform's transpose is actually its inverse
             ray = Ray(intersection->dg()->point, wo, NormalRay, rayEpsilon);
@@ -388,12 +388,9 @@ RT_PROGRAM void gatherPhotons()
         Importon & importon = importonList[importonIndex+i];
         if (importon.isHit) {
             ++nValidImportons;
-//            float3 wo = transformVector(*worldToObject, pixelSample.wo);
-//            float3 wi = transformVector(*worldToObject, -importon.wo);
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
             float3 f = bsdf.f(pixelSample.wo, -importon.wo);
-            indirect += importon.weight * f * Li *
-                dot(intersection->dg()->normal, -importon.wo);
+            indirect += importon.weight * f * Li * fabsf(dot(intersection->dg()->normal, importon.wo));
 //            /*TODO*/
 //            if (importon.isHit == 99) {
 //                float nImportons = static_cast<float>(pixelSample.nImportons);

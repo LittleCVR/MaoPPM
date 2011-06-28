@@ -134,9 +134,12 @@ class FresnelDielectric : public Fresnel {
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
-    private:
+    public:  // should be private
         float eta_i, eta_t;
 };
+
+static const unsigned int  MAX_FRESNEL_SIZE  = sizeof(FresnelDielectric);
+
 }   /* -----  end of namespace MaoPPM  ----- */
 
 #endif  /* -----  #ifndef IGPPM_CORE_FRESNEL_H  ----- */

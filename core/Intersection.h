@@ -34,6 +34,8 @@
 #include    "Material.h"
 #include    "Matte.h"
 #include    "Plastic.h"
+#include    "Mirror.h"
+#include    "Glass.h"
 
 
 
@@ -43,7 +45,11 @@ namespace MaoPPM {
     if (material->type() & Material::Matte) \
         lvalue op reinterpret_cast<Matte *>(material)->function(__VA_ARGS__); \
     else if (material->type() & Material::Plastic) \
-        lvalue op reinterpret_cast<Plastic *>(material)->function(__VA_ARGS__);
+        lvalue op reinterpret_cast<Plastic *>(material)->function(__VA_ARGS__); \
+    else if (material->type() & Material::Mirror) \
+        lvalue op reinterpret_cast<Mirror *>(material)->function(__VA_ARGS__); \
+    else if (material->type() & Material::Glass) \
+        lvalue op reinterpret_cast<Glass *>(material)->function(__VA_ARGS__);
 
 class Intersection {
 #ifdef __CUDACC__

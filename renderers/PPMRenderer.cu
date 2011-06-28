@@ -183,7 +183,7 @@ RT_PROGRAM void shootPhotons()
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
-            /*TODO*/
+            /* TODO: sample random light */
             // sample light
             const Light & light = lightList[0];
             flux = light.flux;
@@ -194,14 +194,13 @@ RT_PROGRAM void shootPhotons()
         }
         // starts from surface
         else {
-            /*TODO*/
             float  probability;
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
             // remember that we are now shooting rays from a light
             // thus wo and wi must be swapped
             float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
             if (probability == 0.0f) continue;
-            flux = f * flux * fmaxf(0.0f, dot(wo, intersection->dg()->normal)) / probability;
+            flux = f * flux * fabsf(dot(wo, intersection->dg()->normal)) / probability;
             // transform from object to world
             // remember that this transform's transpose is actually its inverse
             ray = Ray(intersection->dg()->point, wo, NormalRay, rayEpsilon);
@@ -266,7 +265,7 @@ RT_PROGRAM void estimateDensity()
                 float distanceSquared = dot(diff, diff);
                 // Do not gather direct photons.
                 if (!(photon.flags & Photon::Direct) &&
-                        distanceSquared < pixelSample.radiusSquared)
+                    distanceSquared < pixelSample.radiusSquared)
                 {
                     float3 f = bsdf.f(pixelSample.wo, photon.wi);
 //                    float  s = 1.0f - distanceSquared / pixelSample.radiusSquared;

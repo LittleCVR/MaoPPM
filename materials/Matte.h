@@ -42,8 +42,7 @@ namespace MaoPPM {
  */
 class Matte : public Material {
     public:
-        Matte(optix::float3 kd) : Material(Material::Matte), m_kd(kd) { /* EMPTY */ }
-        ~Matte() { /* EMPTY */ }
+        Matte(const optix::float3 & kd) : Material(Material::Matte), m_kd(kd) { /* EMPTY */ }
 
 #ifdef __CUDACC__
     public:

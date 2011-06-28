@@ -74,22 +74,9 @@ RT_PROGRAM void handleNormalRayClosestHit()
     Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, index);
     normalRayPayload.m_intersection = intersection;
 
+    // Intersection
     intersection->m_material = GET_MATERIAL(Matte, materialIndex);
-
     // Differential geometry.
     DifferentialGeometry * dg = intersection->dg();
     *dg = geometricDG;
-//    if (launchIndex.x == 128 && launchIndex.y == 128) {
-//        rtPrintf("before\n");
-//        rtPrintf("point "); dump(dg->point); rtPrintf("\n");
-//        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
-//    }
-    dg->point  = rtTransformPoint(RT_OBJECT_TO_WORLD, dg->point);
-    dg->normal = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, dg->normal));
-    dg->normal = faceforward(dg->normal, -currentRay.direction, dg->normal);
-//    if (launchIndex.x == 128 && launchIndex.y == 128) {
-//        rtPrintf("after\n");
-//        rtPrintf("point "); dump(dg->point); rtPrintf("\n");
-//        rtPrintf("normal "); dump(dg->normal); rtPrintf("\n");
-//    }
 }   /* -----  end of function handleNormalRayClosestHit  ----- */

@@ -30,7 +30,9 @@
 #include    "payload.h"
 #include    "utility.h"
 #include    "Light.h"
+#include    "Glass.h"
 #include    "Matte.h"
+#include    "Mirror.h"
 #include    "Plastic.h"
 #include    "Renderer.h"
 
@@ -192,28 +194,38 @@ void SceneBuilder::material(const char * type, ParameterVector * parameterVector
         Index index = m_scene->copyToHeap(&matte, sizeof(matte));
         material["materialIndex"]->setUserData(sizeof(index), &index);
         // program
-        std::string ptxPath = m_scene->ptxpath("MaoPPM", "Matte.cu");
-        Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
-        material->setClosestHitProgram(NormalRay, program);
-        ptxPath = m_scene->ptxpath("MaoPPM", "ray.cu");
-        Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
-        material->setAnyHitProgram(ShadowRay, program2);
+        setMaterialPrograms(material, "Matte.cu");
     }
     else if (strcmp(type, "plastic") == 0) {
         float3 kd = findOneColor("Kd", *parameterVector, make_float3(0.25f));
         float3 ks = findOneColor("Ks", *parameterVector, make_float3(0.25f));
-        float  roughness = findOneFloat("roughness", *parameterVector, 0.1);
+        float  roughness = findOneFloat("roughness", *parameterVector, 0.1f);
         // material
         Plastic plastic(kd, ks, roughness);
         Index index = m_scene->copyToHeap(&plastic, sizeof(plastic));
         material["materialIndex"]->setUserData(sizeof(index), &index);
         // program
-        std::string ptxPath = m_scene->ptxpath("MaoPPM", "Plastic.cu");
-        Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
-        material->setClosestHitProgram(NormalRay, program);
-        ptxPath = m_scene->ptxpath("MaoPPM", "ray.cu");
-        Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
-        material->setAnyHitProgram(ShadowRay, program2);
+        setMaterialPrograms(material, "Plastic.cu");
+    }
+    else if (strcmp(type, "mirror") == 0) {
+        float3 kr = findOneColor("Kr", *parameterVector, make_float3(0.9f));
+        // material
+        Mirror mirror(kr);
+        Index index = m_scene->copyToHeap(&mirror, sizeof(mirror));
+        material["materialIndex"]->setUserData(sizeof(index), &index);
+        // program
+        setMaterialPrograms(material, "Mirror.cu");
+    }
+    else if (strcmp(type, "glass") == 0) {
+        float3 kr = findOneColor("Kr", *parameterVector, make_float3(1.0f));
+        float3 kt = findOneColor("Kt", *parameterVector, make_float3(1.0f));
+        float  in = findOneFloat("index", *parameterVector, 1.5f);
+        // material
+        Glass glass(kr, kt, in);
+        Index index = m_scene->copyToHeap(&glass, sizeof(glass));
+        material["materialIndex"]->setUserData(sizeof(index), &index);
+        // program
+        setMaterialPrograms(material, "Glass.cu");
     }
     m_currentState.material = material;
 
@@ -241,14 +253,9 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
             exit(EXIT_FAILURE);
         }
 
+        // Geometry.
         geometry->setPrimitiveCount(nTriangles);
-
-        std::string ptxPath = m_scene->ptxpath("MaoPPM", "TriangleMesh.cu");
-        Program boundingBoxProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "boundingBox");
-        geometry->setBoundingBoxProgram(boundingBoxProgram);
-        Program intersectProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "intersect");
-        geometry->setIntersectionProgram(intersectProgram);
-
+        // Vertices.
         Buffer vertexBuffer = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
         vertexBuffer->setFormat(RT_FORMAT_FLOAT3);
         vertexBuffer->setSize(nVertices / 3);
@@ -261,7 +268,7 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
             vertexBuffer->unmap();
         }
         geometry["vertexList"]->set(vertexBuffer);
-
+        // Indices.
         Buffer indexBuffer = m_scene->getContext()->createBuffer(RT_BUFFER_INPUT);
         indexBuffer->setFormat(RT_FORMAT_UNSIGNED_INT3);
         indexBuffer->setSize(nIndices / 3);
@@ -275,6 +282,33 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
             indexBuffer->unmap();
         }
         geometry["vertexIndexList"]->set(indexBuffer);
+
+        // Programs
+        std::string ptxPath = m_scene->ptxpath("MaoPPM", "TriangleMesh.cu");
+        Program boundingBoxProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "boundingBox");
+        geometry->setBoundingBoxProgram(boundingBoxProgram);
+        Program intersectProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "intersect");
+        geometry->setIntersectionProgram(intersectProgram);
+    }
+    else if (strcmp(type, "sphere") == 0) {
+        float  radius = findOneFloat("radius", *parameterVector, 1.0f);
+        float  phiMax = findOneFloat("phimax", *parameterVector, 360.0f);
+        float  zMin   = findOneFloat("zmin",   *parameterVector, -radius);
+        float  zMax   = findOneFloat("zmax",   *parameterVector,  radius);
+        phiMax = phiMax / 180.0 * M_PIf;
+
+        geometry->setPrimitiveCount(1);
+        geometry["radius"]->setFloat(radius);
+        geometry["phiMax"]->setFloat(phiMax);
+        geometry["zMin"]->setFloat(zMin);
+        geometry["zMax"]->setFloat(zMax);
+
+        // Programs
+        std::string ptxPath = m_scene->ptxpath("MaoPPM", "Sphere.cu");
+        Program boundingBoxProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "boundingBox");
+        geometry->setBoundingBoxProgram(boundingBoxProgram);
+        Program intersectProgram = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "intersect");
+        geometry->setIntersectionProgram(intersectProgram);
     }
 
     GeometryInstance geometryInstance = m_scene->context()->createGeometryInstance();
@@ -289,15 +323,33 @@ void SceneBuilder::shape(const char * type, ParameterVector * parameterVector)
     Acceleration acceleration = m_scene->context()->createAcceleration("Bvh", "Bvh");
     geometryGroup->setAcceleration(acceleration);
 
-//    Transform transform = m_scene->context()->createTransform();
-//    transform->setMatrix(false, m_currentState.transform.getData(), NULL);
-//    transform->setChild(geometryGroup);
+    // Why don't we use optix::Transform here?
+    // Because it would cause OptiX to crash, OptiX sucks.
+    // We will only use it to compute the inverse.
+    float matrix[16], inverse[16];
+    Transform transform = m_scene->context()->createTransform();
+    transform->setMatrix(false, m_currentState.transform.getData(), NULL);
+    transform->getMatrix(false, matrix, inverse);
+    geometry["worldToObject"]->setMatrix4x4fv(false, inverse);
+    geometry["objectToWorld"]->setMatrix4x4fv(false, matrix);
 
     m_scene->m_rootObject->setChildCount(m_scene->m_rootObject->getChildCount() + 1);
     m_scene->m_rootObject->setChild(m_scene->m_rootObject->getChildCount() - 1, geometryGroup);
 
     // delete
     deleteParameterVector(parameterVector);
+}
+
+
+
+void SceneBuilder::setMaterialPrograms(optix::Material material, const char * cuFileName)
+{
+    std::string ptxPath = m_scene->ptxpath("MaoPPM", cuFileName);
+    Program program = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleNormalRayClosestHit");
+    material->setClosestHitProgram(NormalRay, program);
+    ptxPath = m_scene->ptxpath("MaoPPM", "ray.cu");
+    Program program2 = m_scene->getContext()->createProgramFromPTXFile(ptxPath, "handleShadowRayAnyHit");
+    material->setAnyHitProgram(ShadowRay, program2);
 }
 
 

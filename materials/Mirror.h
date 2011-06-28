@@ -1,12 +1,12 @@
 /*
  * =============================================================================
  *
- *       Filename:  Material.h
+ *       Filename:  Mirror.h
  *
  *    Description:  
  *
  *        Version:  1.0
- *        Created:  2011-06-20 17:49:44
+ *        Created:  2011-06-28 18:52:22
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
@@ -16,8 +16,8 @@
  * =============================================================================
  */
 
-#ifndef MAOPPM_CORE_MATERIAL_H
-#define MAOPPM_CORE_MATERIAL_H
+#ifndef MAOPPM_MATERIALS_MIRROR_H
+#define MAOPPM_MATERIALS_MIRROR_H
 
 /*----------------------------------------------------------------------------
  *  header files from OptiX
@@ -28,37 +28,39 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "BSDF.h"
+#include    "Material.h"
 
 
 
 namespace MaoPPM {
 /*
  * =============================================================================
- *        Class:  Material
+ *        Class:  Mirror
  *  Description:  
  * =============================================================================
  */
-class Material {
+class Mirror : public Material {
     public:
-        enum Type {
-            Matte    = 1 << 1,
-            Plastic  = 1 << 2,
-            Mirror   = 1 << 3,
-            Glass    = 1 << 4
-        };  /* -----  end of enum Material::Type  ----- */
-
-    public:
-        Material(Type type) : m_type(type) { /* EMPTY */ }
-        ~Material() { /* EMPTY */ }
+        Mirror(const optix::float3 & kr) : Material(Material::Mirror), m_kr(kr) { /* EMPTY */ }
+        ~Mirror() { /* EMPTY */ }
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ Type type() const { return m_type; }
+        __device__ __inline__ void getBSDF(const DifferentialGeometry & dg, BSDF * bsdf) const
+        {
+            *bsdf = BSDF(dg, dg.normal);
+            bsdf->m_nBxDFs = 1;
+            SpecularReflection * spec = reinterpret_cast<SpecularReflection *>(bsdf->bxdfAt(0));
+            *spec = SpecularReflection(m_kr);
+            FresnelNoOp * fresnel = reinterpret_cast<FresnelNoOp *>(spec->fresnel());
+            *fresnel = FresnelNoOp();
+        }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
     private:
-        Type  m_type;
-};  /* -----  end of class Material  ----- */
+        optix::float3  m_kr;
+};  /* -----  end of class Mirror  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
-#endif  /* -----  #ifndef MAOPPM_CORE_MATERIAL_H  ----- */
+#endif  /* -----  #ifndef MAOPPM_MATERIALS_MIRROR_H  ----- */

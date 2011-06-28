@@ -36,6 +36,17 @@
 
 
 namespace MaoPPM {
+
+#define CALL_FRESNEL_CONST_VIRTUAL_FUNCTION(lvalue, op, fresnel, function, ...) \
+    if (fresnel->type() & Fresnel::NoOp) \
+        lvalue op reinterpret_cast<const FresnelNoOp *>(fresnel)->function(__VA_ARGS__); \
+    else if (fresnel->type() & Fresnel::Dielectric) \
+        lvalue op reinterpret_cast<const FresnelDielectric *>(fresnel)->function(__VA_ARGS__);
+
+#define CALL_MICROFACET_DISTRIBUTION_CONST_VIRTUAL_FUNCTION(lvalue, op, distribution, function, ...) \
+    if (distribution->type() & MicrofacetDistribution::Blinn) \
+        lvalue op reinterpret_cast<const Blinn *>(distribution)->function(__VA_ARGS__);
+
 /*
  * =============================================================================
  *         Name:  BxDF
@@ -45,6 +56,7 @@ namespace MaoPPM {
 class BxDF {
     public:
         enum Type {
+            Null            = 0,
             // basic types,
             Reflection      = 1 << 31,
             Transmission    = 1 << 30,
@@ -56,8 +68,10 @@ class BxDF {
             AllTransmission = Transmission | AllType,
             All             = AllReflection | AllTransmission,
             // BxDF types
-            Lambertian      = 1 << 0,
-            Microfacet      = 1 << 1
+            Lambertian            = 1 << 0,
+            SpecularReflection    = 1 << 1,
+            SpecularTransmission  = 1 << 2,
+            Microfacet            = 1 << 3
         };  /* -----  end of enum BxDF::Type  ----- */
 
 #ifdef __CUDACC__
@@ -66,6 +80,13 @@ class BxDF {
 
     public:
         __device__ __inline__ Type type() const { return m_type; }
+
+        // Because we compress the basic types and BxDF types in a single
+        // $m_type variable, it is necessary to AND All first.
+        __device__ __inline__ bool matchFlags(Type type) const
+        {
+            return (m_type & All & type) == (m_type & All);
+        }
 
     public:
         #define BxDF_f \
@@ -90,6 +111,7 @@ class BxDF {
                 const optix::float2 & sample, float * prob) const \
         { \
             *wi = sampleCosineWeightedHemisphere(sample); \
+            if (wo.z < 0.0f) wi->z *= -1.0f; \
             *prob = probability(wo, *wi); \
             return f(wo, *wi); \
         }
@@ -110,7 +132,7 @@ class Lambertian : public BxDF {
 #ifdef __CUDACC__
     public:
         __device__ __inline__ Lambertian(const optix::float3 & reflectance) :
-            BxDF(BxDF::Type(BxDF::Lambertian | Reflection | Diffuse)),
+            BxDF(BxDF::Type(BxDF::Lambertian | BxDF::Reflection | BxDF::Diffuse)),
             m_reflectance(reflectance) { /* EMPTY */ }
 
         __device__ __inline__ optix::float3 f(
@@ -127,6 +149,111 @@ class Lambertian : public BxDF {
         optix::float3  m_reflectance;
 };  /* -----  end of class Lambertian  ----- */
 
+class SpecularReflection : public BxDF {
+#ifdef __CUDACC__
+    public:
+        __device__ __inline__ SpecularReflection(const optix::float3 & reflectance) :
+            BxDF(BxDF::Type(BxDF::SpecularReflection | BxDF::Reflection | BxDF::Specular)),
+              m_reflectance(reflectance) { /* EMPTY */ }
+
+    public:
+        __device__ __inline__ Fresnel * fresnel() 
+        {
+            return reinterpret_cast<Fresnel *>(m_fresnel);
+        }
+        __device__ __inline__ const Fresnel * fresnel() const
+        {
+            return reinterpret_cast<const Fresnel *>(m_fresnel);
+        }
+
+    public:
+        __device__ __inline__ optix::float3 f(
+                const optix::float3 & /* wo */, const optix::float3 & /* wi */) const
+        {
+            return optix::make_float3(0.0f);
+        }
+
+        __device__ __inline__ float probability(const optix::float3 & wo, const optix::float3 & wi) const
+        {
+            return 0.0f;
+        }
+
+        __device__ __inline__ optix::float3 sampleF(
+                const optix::float3 & wo, optix::float3 * wi,
+                const optix::float2 & sample, float * prob) const
+        {
+            *wi = optix::make_float3(-wo.x, -wo.y, wo.z);
+            *prob = 1.0f;
+            optix::float3 F;
+            CALL_FRESNEL_CONST_VIRTUAL_FUNCTION(F, =, fresnel(), evaluate, cosTheta(wo));
+            F = F * m_reflectance / fabsf(cosTheta(*wi));
+            return F;
+        }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
+    private:
+        optix::float3  m_reflectance;
+        char           m_fresnel[MAX_FRESNEL_SIZE];
+};
+
+
+
+class SpecularTransmission : public BxDF {
+#ifdef __CUDACC__
+    public:
+        __device__ __inline__ SpecularTransmission(const optix::float3 & transmittance, float ei, float et) :
+            BxDF(BxDF::Type(BxDF::SpecularTransmission | BxDF::Transmission | BxDF::Specular)),
+            m_transmittance(transmittance), m_fresnel(ei, et) { /* EMPTY */ }
+
+    public:
+        __device__ __inline__ FresnelDielectric * fresnel() { return &m_fresnel; }
+        __device__ __inline__ const FresnelDielectric * fresnel() const { return &m_fresnel; }
+
+    public:
+        __device__ __inline__ optix::float3 f(
+                const optix::float3 & /* wo */, const optix::float3 & /* wi */) const
+        {
+            return optix::make_float3(0.0f);
+        }
+
+        __device__ __inline__ float probability(const optix::float3 & wo, const optix::float3 & wi) const
+        {
+            return 0.0f;
+        }
+
+        __device__ __inline__ optix::float3 sampleF(
+                const optix::float3 & wo, optix::float3 * wi,
+                const optix::float2 & sample, float * prob) const
+        {
+            // Figure out which $\eta$ is incident and which is transmitted
+            bool entering = cosTheta(wo) > 0.0f;
+            float ei = fresnel()->eta_i, et = fresnel()->eta_t;
+            if (!entering) swap(ei, et);
+
+            // Compute transmitted ray direction
+            float sini2 = sinThetaSquared(wo);
+            float eta = ei / et;
+            float sint2 = eta * eta * sini2;
+
+            // Handle total internal reflection for transmission
+            if (sint2 >= 1.f) return optix::make_float3(0.f);
+            float cost = sqrtf(max(0.f, 1.f - sint2));
+            if (entering) cost = -cost;
+            float sintOverSini = eta;
+            *wi = optix::make_float3(sintOverSini * -wo.x, sintOverSini * -wo.y, cost);
+            *prob = 1.f;
+            optix::float3 F = fresnel()->evaluate(cosTheta(wo));
+            return (optix::make_float3(1.f) - F) * m_transmittance / fabsf(cosTheta(*wi));
+        }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
+
+    private:
+        optix::float3      m_transmittance;
+        FresnelDielectric  m_fresnel;
+};
+
+
+
 /*
  * =============================================================================
  *         Name:  Microfacet
@@ -135,7 +262,6 @@ class Lambertian : public BxDF {
  */
 class Microfacet : public BxDF {
     public:
-        static const unsigned int MAX_FRESNEL_SIZE                  = sizeof(FresnelDielectric);
         static const unsigned int MAX_MICROFACET_DISTRIBUTION_SIZE  = sizeof(Blinn);
 
 #ifdef __CUDACC__
@@ -174,15 +300,11 @@ class Microfacet : public BxDF {
 
             // Fresnel.
             optix::float3 F;
-            if (fresnel()->type() & Fresnel::NoOp)
-                F = reinterpret_cast<const FresnelNoOp *>(fresnel())->evaluate(cosThetaH);
-            else if (fresnel()->type() & Fresnel::Dielectric)
-                F = reinterpret_cast<const FresnelDielectric *>(fresnel())->evaluate(cosThetaH);
+            CALL_FRESNEL_CONST_VIRTUAL_FUNCTION(F, =, fresnel(), evaluate, cosThetaH);
 
             // Distribution.
             float D;
-            if (distribution()->type() & MicrofacetDistribution::Blinn)
-                D = reinterpret_cast<const Blinn *>(distribution())->D(wh);
+            CALL_MICROFACET_DISTRIBUTION_CONST_VIRTUAL_FUNCTION(D, =, distribution(), D, wh);
 
             return R * D * G(wo, wi, wh) * F / (4.f * cosThetaI * cosThetaO);
         }
@@ -198,8 +320,7 @@ class Microfacet : public BxDF {
                 const optix::float2 & sample, float * prob) const
         {
             // Distribution.
-            if (distribution()->type() & MicrofacetDistribution::Blinn)
-                reinterpret_cast<const Blinn *>(distribution())->sampleF(wo, wi, sample, prob);
+            CALL_MICROFACET_DISTRIBUTION_CONST_VIRTUAL_FUNCTION(, , distribution(), sampleF, wo, wi, sample, prob);
             if (!sameHemisphere(wo, *wi)) return optix::make_float3(0.f);
             return f(wo, *wi);
         }
@@ -208,8 +329,7 @@ class Microfacet : public BxDF {
             if (!sameHemisphere(wo, wi)) return 0.f;
             // Distribution.
             float prob;
-            if (distribution()->type() & MicrofacetDistribution::Blinn)
-                prob = reinterpret_cast<const Blinn *>(distribution())->probability(wo, wi);
+            CALL_MICROFACET_DISTRIBUTION_CONST_VIRTUAL_FUNCTION(prob, =, distribution(), probability, wo, wi);
             return prob;
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
@@ -221,12 +341,6 @@ class Microfacet : public BxDF {
 };
 
 static const unsigned int  MAX_BXDF_SIZE  = sizeof(Microfacet);
-
-#define CALL_BXDF_CONST_VIRTUAL_FUNCTION(lvalue, op, bxdf, function, ...) \
-    if (bxdf->type() & BxDF::Lambertian) \
-        lvalue op reinterpret_cast<const Lambertian *>(bxdf)->function(__VA_ARGS__); \
-    else if (bxdf->type() & BxDF::Microfacet) \
-        lvalue op reinterpret_cast<const Microfacet *>(bxdf)->function(__VA_ARGS__);
 
 }   /* -----  end of namespace MaoPPM  ----- */
 

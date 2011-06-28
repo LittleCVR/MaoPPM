@@ -36,6 +36,17 @@
 
 
 namespace MaoPPM {
+
+#define CALL_BXDF_CONST_VIRTUAL_FUNCTION(lvalue, op, bxdf, function, ...) \
+    if (bxdf->type() & BxDF::Lambertian) \
+        lvalue op reinterpret_cast<const Lambertian *>(bxdf)->function(__VA_ARGS__); \
+    else if (bxdf->type() & BxDF::SpecularReflection) \
+        lvalue op reinterpret_cast<const SpecularReflection *>(bxdf)->function(__VA_ARGS__); \
+    else if (bxdf->type() & BxDF::SpecularTransmission) \
+        lvalue op reinterpret_cast<const SpecularTransmission *>(bxdf)->function(__VA_ARGS__); \
+    else if (bxdf->type() & BxDF::Microfacet) \
+        lvalue op reinterpret_cast<const Microfacet *>(bxdf)->function(__VA_ARGS__);
+
 /*
  * =============================================================================
  *         Name:  BSDF
@@ -61,6 +72,16 @@ class BSDF {
         }
 
         __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
+
+        __device__ __inline__ unsigned int nBxDFs(BxDF::Type type) const
+        {
+            unsigned int count = 0;
+            for (unsigned int i = 0; i < nBxDFs(); ++i)
+                if (bxdfAt(i)->matchFlags(type))
+                    ++count;
+            return count;
+        }
+
         __device__ __inline__ BxDF * bxdfAt(const Index & index)
         {
             return reinterpret_cast<BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
@@ -69,50 +90,107 @@ class BSDF {
         {
             return reinterpret_cast<const BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
         }
+        __device__ __inline__ BxDF * bxdfAt(const Index & index, BxDF::Type type)
+        {
+            const BSDF * bsdf = this;
+            return const_cast<BxDF *>(bsdf->bxdfAt(index, type));
+        }
+        __device__ __inline__ const BxDF * bxdfAt(const Index & index, BxDF::Type type) const
+        {
+            unsigned int count = index;
+            for (unsigned int i = 0; i < nBxDFs(); ++i) {
+                if (bxdfAt(i)->matchFlags(type))
+                    if (count != 0)
+                        --count;
+                    else
+                        return bxdfAt(i);
+            }
+            return NULL;
+        }
 
     public:
         __device__ __inline__ optix::float3 f(const optix::float3 & worldWo,
-                const optix::float3 & worldWi, BxDF::Type type = BxDF::All) const
+                const optix::float3 & worldWi, BxDF::Type sampleType = BxDF::All) const
         {
             optix::float3 wo, wi;
             worldToLocal(worldWo, &wo);
             worldToLocal(worldWi, &wi);
             // Calculate f.
-            optix::float3 totalF = optix::make_float3(0.0f);
-            for (unsigned int i = 0; i < m_nBxDFs; i++) {
-                const BxDF * bxdf = bxdfAt(i);
-                // Skip unmatched BxDF.
-                if (!(bxdf->type() & type)) continue;
-                // Determine real BxDF type.
-                CALL_BXDF_CONST_VIRTUAL_FUNCTION(totalF, +=, bxdf, f, wo, wi);
-            }
-            return totalF;
+            optix::float3 f = optix::make_float3(0.0f);
+            if (optix::dot(m_gn, worldWi) * optix::dot(m_gn, worldWo) >= 0.0f)  // ignore BTDF
+                sampleType = BxDF::Type(sampleType & ~BxDF::Transmission);
+            else                                                                // ignore BRDF
+                sampleType = BxDF::Type(sampleType & ~BxDF::Reflection);
+            for (unsigned int i = 0; i < nBxDFs(); ++i)
+                if (bxdfAt(i)->matchFlags(sampleType))
+                    CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, +=, bxdfAt(i), f, wo, wi);
+            return f;
         }
 
         __device__ __inline__ optix::float3 sampleF(const optix::float3 & worldWo,
                 optix::float3 * worldWi, const optix::float3 & sample, float * prob,
-                const BxDF::Type type = BxDF::All)
+                BxDF::Type sampleType = BxDF::All, BxDF::Type * sampledType = NULL) const
         {
+            // Count matched componets.
+            unsigned int nMatched = nBxDFs(sampleType);
+            if (nMatched == 0) {
+                *prob = 0.0f;
+                if (sampledType) *sampledType = BxDF::Null;
+                return optix::make_float3(0.0f);
+            }
+
+            // Sample BxDF.
+            unsigned int index = min(nMatched-1,
+                    static_cast<unsigned int>(floorf(sample.x * static_cast<float>(nMatched))));
+            const BxDF * bxdf = bxdfAt(index, sampleType);
+            if (bxdf == NULL) {
+                *prob = 0.0f;
+                if (sampledType) *sampledType = BxDF::Null;
+                return optix::make_float3(0.0f);
+            }
+
+            // Transform.
             optix::float3 wo;
             worldToLocal(worldWo, &wo);
-            /* TODO: must consider type */
-            // Sample BxDF.
-            unsigned int index = min(m_nBxDFs-1,
-                    static_cast<unsigned int>(floorf(sample.x * static_cast<float>(m_nBxDFs))));
-            const BxDF * bxdf = bxdfAt(index);
+
             // Sample f.
-            float p;
             optix::float3 f;
             optix::float3 wi;
             optix::float2 s = optix::make_float2(sample.y, sample.z);
-            CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, =, bxdf, sampleF, wo, &wi, s, &p);
-            /* TODO: this is maybe wrong */
-            // Probability.
-            *prob = 0.0f;
-            for (unsigned int i = 0; i < m_nBxDFs; i++)
-                CALL_BXDF_CONST_VIRTUAL_FUNCTION(*prob, +=, bxdfAt(i), probability, wo, wi);
-            *prob /= static_cast<float>(m_nBxDFs);
+            CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, =, bxdf, sampleF, wo, &wi, s, prob);
+            // Rejected.
+            if (*prob == 0.0f) {
+                if (sampledType) *sampledType = BxDF::Null;
+                return optix::make_float3(0.0f);
+            }
+            // Otherwise.
+            if (sampledType) *sampledType = bxdf->type();
             localToWorld(wi, worldWi);
+
+            // If not specular, sum all non-specular BxDF's probability.
+            if (!(bxdf->type() & BxDF::Specular) && nMatched > 1) {
+                *prob = 1.0f;
+                for (unsigned int i = 0; i < 1; i++)
+                    if (bxdfAt(i)->matchFlags(sampleType))
+                        CALL_BXDF_CONST_VIRTUAL_FUNCTION(*prob, +=, bxdfAt(i), probability, wo, wi);
+            }
+            // Remember to divide component count.
+            if (nMatched > 1)
+                *prob /= static_cast<float>(nMatched);
+            // If not specular, sum all f.
+            if (!(bxdf->type() & BxDF::Specular)) {
+                f = make_float3(0.0f);
+                // Cannot use sameHemisphere(wo, *wi) here,
+                // do not confuse with the geometric normal and the shading normal.
+                if (optix::dot(m_gn, *worldWi) * optix::dot(m_gn, worldWo) >= 0.0f)  // ignore BTDF
+                    sampleType = BxDF::Type(sampleType & ~BxDF::Transmission);
+                else                                                                 // ignore BRDF
+                    sampleType = BxDF::Type(sampleType & ~BxDF::Reflection);
+                for (unsigned int i = 0; i < nBxDFs(); ++i)
+                    if (bxdfAt(i)->matchFlags(sampleType))
+                        CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, +=, bxdfAt(i), f, wo, wi);
+            }
+
             return f;
         }
 

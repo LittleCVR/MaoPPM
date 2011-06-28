@@ -1,12 +1,12 @@
 /*
  * =============================================================================
  *
- *       Filename:  Plastic.cu
+ *       Filename:  Mirror.cu
  *
  *    Description:  
  *
  *        Version:  1.0
- *        Created:  2011-06-21 12:59:55
+ *        Created:  2011-06-28 19:04:41
  *
  *         Author:  Chun-Wei Huang (LittleCVR), 
  *        Company:  Communication & Multimedia Laboratory,
@@ -16,7 +16,7 @@
  * =============================================================================
  */
 
-#include    "Plastic.h"
+#include    "Mirror.h"
 
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
@@ -75,7 +75,7 @@ RT_PROGRAM void handleNormalRayClosestHit()
     normalRayPayload.m_intersection = intersection;
 
     // Intersection
-    intersection->m_material = GET_MATERIAL(Plastic, materialIndex);
+    intersection->m_material = GET_MATERIAL(Mirror, materialIndex);
     // Differential geometry.
     DifferentialGeometry * dg = intersection->dg();
     *dg = geometricDG;

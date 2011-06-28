@@ -100,7 +100,7 @@ RT_PROGRAM void trace()
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
             float3 f = bsdf.sampleF(wo, &wi, sample, &probability);
             if (probability == 0.0f) continue;
-            throughput = f * throughput * dot(wi, intersection->dg()->normal) / probability;
+            throughput = f * throughput * fabsf(dot(wi, intersection->dg()->normal)) / probability;
             ray = Ray(intersection->dg()->point, wi, NormalRay, rayEpsilon);
         }
 
@@ -132,7 +132,7 @@ RT_PROGRAM void trace()
                 Li = light.flux / (4.0f * M_PIf * distanceSquared);
 
             float3 f = bsdf.f(wo, normalizedShadowRayDirection);
-            L += throughput * f * Li * fmaxf(0.0f, dot(normalizedShadowRayDirection, intersection->dg()->normal));
+            L += throughput * f * Li * fabsf(dot(normalizedShadowRayDirection, intersection->dg()->normal));
         }
     }
 

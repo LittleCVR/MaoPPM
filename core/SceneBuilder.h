@@ -81,6 +81,8 @@ class SceneBuilder
         void shape(const char * type, ParameterVector * parameterVector);
 
     private:    // functions
+        void setMaterialPrograms(optix::Material material, const char * cuFileName);
+
         float findOneFloat(const char * name, const ParameterVector & parameterVector,
                 const float defaultValue);
         optix::float3 findOneColor(const char * name, const ParameterVector & parameterVector,

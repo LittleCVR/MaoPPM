@@ -23,7 +23,9 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/Scene.h
     core/System.h
     core/utility.h
+    materials/Glass.h
     materials/Matte.h
+    materials/Mirror.h
     materials/Plastic.h
     renderers/IGPPMRenderer.h
     renderers/PathTracingRenderer.h
@@ -43,12 +45,15 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     # CUDA source files
     core/exception.cu
     core/ray.cu
+    materials/Glass.cu
     materials/Matte.cu
+    materials/Mirror.cu
     materials/Plastic.cu
     renderers/IGPPMRenderer.cu
     renderers/PathTracingRenderer.cu
     renderers/PPMRenderer.cu
     shapes/TriangleMesh.cu
+    shapes/Sphere.cu
     )
 else()
   # GLUT or OpenGL not found
