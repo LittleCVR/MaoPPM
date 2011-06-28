@@ -193,79 +193,6 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
 
 
 
-void PPMRenderer::buildPhotonMapAcceleration(Photon * photonList,
-        uint start, uint end, Photon * photonMap,
-        uint root, float3 bbMin, float3 bbMax)
-{
-    if (end - start == 0) {
-        // Make a fake photon.
-        photonMap[root].flags = Photon::Null;
-        photonMap[root].flux  = make_float3(0.0f);
-        return;
-    }
-    if (end - start == 1) {
-        // Create a leaf photon.
-        photonList[start].flags |= Photon::Leaf;
-        photonMap[root] = photonList[start];
-        return;
-    }
-
-    // Choose the longest axis.
-    uint axis = 0;
-    float3 bbDiff = bbMax - bbMin;
-    if (bbDiff.x > bbDiff.y) {
-        if (bbDiff.x > bbDiff.z)
-            axis = Photon::AxisX;
-        else
-            axis = Photon::AxisZ;
-    } else {
-        if (bbDiff.y > bbDiff.z)
-            axis = Photon::AxisY;
-        else
-            axis = Photon::AxisZ;
-    }
-
-    // Partition the photon list.
-    uint median = (start + end) / 2;
-    if (axis == Photon::AxisX)
-        nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionXComparator);
-    else if (axis == Photon::AxisY)
-        nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionYComparator);
-    else if (axis == Photon::AxisZ)
-        nth_element(&photonList[start], &photonList[median], &photonList[end], Photon::positionZComparator);
-    else
-        assert(false);  // This should never happen.
-    photonList[median].flags |= axis;
-    photonMap[root] = photonList[median];
-
-    // Calculate new bounding box.
-    float3 leftMax  = bbMax;
-    float3 rightMin = bbMin;
-    float3 midPoint = photonMap[root].position;
-    switch (axis) {
-        case Photon::AxisX:
-            rightMin.x = midPoint.x;
-            leftMax.x  = midPoint.x;
-            break;
-        case Photon::AxisY:
-            rightMin.y = midPoint.y;
-            leftMax.y  = midPoint.y;
-            break;
-        case Photon::AxisZ:
-            rightMin.z = midPoint.z;
-            leftMax.z  = midPoint.z;
-            break;
-        default:
-            assert(false);
-            break;
-    }
-
-    buildPhotonMapAcceleration(photonList, start, median, photonMap, 2*root+1, bbMin,  leftMax);
-    buildPhotonMapAcceleration(photonList, median+1, end, photonMap, 2*root+2, rightMin, bbMax);
-}   /* -----  end of method PPMRenderer::buildPhotonMapAcceleration ----- */
-
-
-
 void PPMRenderer::createPhotonMap()
 {
     RTsize photonListSize = 0;
@@ -279,12 +206,15 @@ void PPMRenderer::createPhotonMap()
     Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
     for (uint i = 0; i < static_cast<uint>(photonListSize); i++)
         if (fmaxf(photonListPtr[i].flux) > 0.0f) {
-            validPhotonList[nValidPhotons] = photonListPtr[i];
-            bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
-            bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
-            if (validPhotonList[nValidPhotons].flags & Photon::Direct)
+            // Do not add direct photons.
+            if (photonListPtr[i].flags & Photon::Direct)
                 ++nDirectPhotons;
-            ++nValidPhotons;
+            else {
+                validPhotonList[nValidPhotons] = photonListPtr[i];
+                bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
+                bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
+                ++nValidPhotons;
+            }
         }
     m_nEmittedPhotons += nDirectPhotons;
     debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
@@ -292,7 +222,7 @@ void PPMRenderer::createPhotonMap()
 
     // build acceleration
     Photon * photonMapPtr = photonListPtr;
-    buildPhotonMapAcceleration(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
+    KdTree<Photon>::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
     delete [] validPhotonList;

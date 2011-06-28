@@ -17,6 +17,7 @@
  */
 
 #include    "IGPPMRenderer.h"
+#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
@@ -42,7 +43,7 @@ using namespace MaoPPM;
 
 typedef IGPPMRenderer::PixelSample  PixelSample;
 typedef IGPPMRenderer::Importon     Importon;
-typedef IGPPMRenderer::Photon       Photon;
+typedef PPMRenderer::Photon         Photon;
 
 
 
@@ -145,7 +146,6 @@ RT_PROGRAM void generatePixelSamples()
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-//        BSDF * bsdf = intersection->bsdf();
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
         Li = f * light->flux / (4.0f * M_PIf * distanceSquared);
@@ -179,7 +179,6 @@ RT_PROGRAM void shootImportons()
         importonList[importonIndex+i].reset();
 
     Intersection *  intersection  = pixelSample.intersection;
-//    BSDF         *  bsdf          = intersection->bsdf();
     BSDF bsdf; intersection->getBSDF(&bsdf);
     // other importons
     for (uint i = 0; i < nImportonsPerThread; i++) {
@@ -191,7 +190,7 @@ RT_PROGRAM void shootImportons()
         float3 wi;
         float  probability;
         float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
-        bsdf.sampleF(pixelSample.wo, &wi, sample, &probability);
+        float3 f = bsdf.sampleF(pixelSample.wo, &wi, sample, &probability);
         if (probability == 0.0f) continue;
 
         // trace
@@ -203,7 +202,7 @@ RT_PROGRAM void shootImportons()
         if (!importon.isHit) continue;
 
         // importon
-        importon.weight         = 1.0f / probability;
+        importon.weight         = f / probability;
         importon.intersection   = payload.intersection();
         importon.wo             = -wi;
         importon.flux           = make_float3(0.0f);
@@ -236,7 +235,6 @@ RT_PROGRAM void shootPhotons()
     uint depth = 0;
     float3 wo, wi, flux;
     Intersection * intersection  = NULL;
-//    BSDF         * bsdf          = NULL;
     BSDF bsdf;
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
@@ -276,9 +274,9 @@ RT_PROGRAM void shootPhotons()
         // create photon
         Photon & photon = photonList[photonIndex+i];
         if (depth == 0)
-            photon.flags |= IGPPMRenderer::Photon::Direct;
+            photon.flags |= Photon::Direct;
         else
-            photon.flags |= IGPPMRenderer::Photon::Indirect;
+            photon.flags |= Photon::Indirect;
         photon.position = intersection->dg()->point;
         photon.wi       = wi;
         photon.flux     = flux;
@@ -320,27 +318,28 @@ RT_PROGRAM void gatherPhotons()
             stack[stackPosition++] = 0;
             do {
                 const Photon & photon = photonMap[stackNode];
-                if (photon.flags == Photon::Null)
+                if (photon.flags == KdTree<Photon>::Null)
                     stackNode = stack[--stackPosition];
                 else {
                     Intersection * intersection  = importon.intersection;
-//                    BSDF * bsdf = intersection->bsdf();
                     BSDF bsdf; intersection->getBSDF(&bsdf);
                     float3 diff = intersection->dg()->point - photon.position;
                     float distanceSquared = dot(diff, diff);
                     if (distanceSquared < importon.radiusSquared) {
                         float3 f = bsdf.f(importon.wo, photon.wi);
-                        flux += f * photon.flux;
-                        ++nAccumulatedPhotons;
+                        if (!isBlack(f)) {
+                            flux += f * photon.flux;
+                            ++nAccumulatedPhotons;
+                        }
                     }
 
-                    if (photon.flags & Photon::Leaf)
+                    if (photon.flags & KdTree<Photon>::Leaf)
                         stackNode = stack[--stackPosition];
                     else {
                         float d;
-                        if      (photon.flags & Photon::AxisX)  d = diff.x;
-                        else if (photon.flags & Photon::AxisY)  d = diff.y;
-                        else                                    d = diff.z;
+                        if      (photon.flags & KdTree<Photon>::AxisX)  d = diff.x;
+                        else if (photon.flags & KdTree<Photon>::AxisY)  d = diff.y;
+                        else                                            d = diff.z;
 
                         // Calculate the next child selector. 0 is left, 1 is right.
                         int selector = d < 0.0f ? 0 : 1;
@@ -389,8 +388,7 @@ RT_PROGRAM void gatherPhotons()
         if (importon.isHit) {
             ++nValidImportons;
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
-            float3 f = bsdf.f(pixelSample.wo, -importon.wo);
-            indirect += importon.weight * f * Li * fabsf(dot(intersection->dg()->normal, importon.wo));
+            indirect += importon.weight * Li * fabsf(dot(intersection->dg()->normal, importon.wo));
 //            /*TODO*/
 //            if (importon.isHit == 99) {
 //                float nImportons = static_cast<float>(pixelSample.nImportons);

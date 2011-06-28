@@ -256,7 +256,7 @@ RT_PROGRAM void estimateDensity()
         stack[stackPosition++] = 0;
         do {
             const Photon & photon = photonMap[stackNode];
-            if (photon.flags == Photon::Null)
+            if (photon.flags == KdTree<Photon>::Null)
                 stackNode = stack[--stackPosition];
             else {
                 Intersection * intersection  = pixelSample.intersection;
@@ -264,24 +264,25 @@ RT_PROGRAM void estimateDensity()
                 float3 diff = intersection->dg()->point - photon.position;
                 float distanceSquared = dot(diff, diff);
                 // Do not gather direct photons.
-                if (!(photon.flags & Photon::Direct) &&
-                    distanceSquared < pixelSample.radiusSquared)
+                if (distanceSquared < pixelSample.radiusSquared)
                 {
                     float3 f = bsdf.f(pixelSample.wo, photon.wi);
 //                    float  s = 1.0f - distanceSquared / pixelSample.radiusSquared;
 //                    float  k = 3.0f * s * s / M_PIf;
 //                    flux += k * f * photon.flux;
-                    flux += f * photon.flux;
-                    ++nAccumulatedPhotons;
+                    if (!isBlack(f)) {
+                        flux += f * photon.flux;
+                        ++nAccumulatedPhotons;
+                    }
                 }
 
-                if (photon.flags & Photon::Leaf)
+                if (photon.flags & KdTree<Photon>::Leaf)
                     stackNode = stack[--stackPosition];
                 else {
                     float d;
-                    if      (photon.flags & Photon::AxisX)  d = diff.x;
-                    else if (photon.flags & Photon::AxisY)  d = diff.y;
-                    else                                     d = diff.z;
+                    if      (photon.flags & KdTree<Photon>::AxisX)  d = diff.x;
+                    else if (photon.flags & KdTree<Photon>::AxisY)  d = diff.y;
+                    else                                            d = diff.z;
 
                     // Calculate the next child selector. 0 is left, 1 is right.
                     int selector = d < 0.0f ? 0 : 1;

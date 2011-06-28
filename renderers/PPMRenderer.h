@@ -28,6 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
+#include    "KdTree.h"
 #include    "Renderer.h"
 
 
@@ -76,42 +77,21 @@ class PPMRenderer : public Renderer {
             optix::float3  wi;        // incident direction
             optix::float3  flux;      // photon flux
 
-            enum Flags {
-                Null      = 0,
-                Leaf      = 1 << 0,
-                AxisX     = 1 << 1,
-                AxisY     = 1 << 2,
-                AxisZ     = 1 << 3,
-                Direct    = 1 << 4,
-                Indirect  = 1 << 5
+            enum Flag {
+                Direct    = KdTree<Photon>::User << 0,
+                Indirect  = KdTree<Photon>::User << 1
             };
             unsigned int   flags;     // for KdTree
 
             __device__ __inline__ void reset()
             {
-                flags  = Null;
+                flags  = 0;
                 flux   = optix::make_float3(0.0f);
-            }
-
-            static bool positionXComparator(const Photon & photon1, const Photon & photon2)
-            {
-                return photon1.position.x < photon2.position.x;
-            }
-            static bool positionYComparator(const Photon & photon1, const Photon & photon2)
-            {
-                return photon1.position.y < photon2.position.y;
-            }
-            static bool positionZComparator(const Photon & photon1, const Photon & photon2)
-            {
-                return photon1.position.z < photon2.position.z;
             }
         } Photon ;
 
     private:
         void createPhotonMap();
-        void buildPhotonMapAcceleration(Photon * photonList,
-                optix::uint start, optix::uint end, Photon * photonMap,
-                optix::uint root, optix::float3 bbMin, optix::float3 bbMax);
 
     public:
         void    init();
