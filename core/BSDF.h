@@ -90,24 +90,28 @@ class BSDF {
         }
 
         __device__ __inline__ optix::float3 sampleF(const optix::float3 & worldWo,
-                optix::float3 * worldWi, const optix::float3 & sample, float * probability,
+                optix::float3 * worldWi, const optix::float3 & sample, float * prob,
                 const BxDF::Type type = BxDF::All)
         {
             optix::float3 wo;
             worldToLocal(worldWo, &wo);
-            /* TODO: count type */
+            /* TODO: must consider type */
             // Sample BxDF.
             unsigned int index = min(m_nBxDFs-1,
                     static_cast<unsigned int>(floorf(sample.x * static_cast<float>(m_nBxDFs))));
             const BxDF * bxdf = bxdfAt(index);
-            *probability = 1.0f / static_cast<float>(m_nBxDFs);
             // Sample f.
-            float prob;
+            float p;
             optix::float3 f;
             optix::float3 wi;
             optix::float2 s = optix::make_float2(sample.y, sample.z);
-            CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, =, bxdf, sampleF, wo, &wi, s, &prob);
-            *probability *= prob;
+            CALL_BXDF_CONST_VIRTUAL_FUNCTION(f, =, bxdf, sampleF, wo, &wi, s, &p);
+            /* TODO: this is maybe wrong */
+            // Probability.
+            *prob = 0.0f;
+            for (unsigned int i = 0; i < m_nBxDFs; i++)
+                CALL_BXDF_CONST_VIRTUAL_FUNCTION(*prob, +=, bxdfAt(i), probability, wo, wi);
+            *prob /= static_cast<float>(m_nBxDFs);
             localToWorld(wi, worldWi);
             return f;
         }
