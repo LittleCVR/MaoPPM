@@ -41,10 +41,10 @@ namespace MaoPPM {
 class Material {
     public:
         enum Type {
-            Matte    = 1 << 1,
-            Plastic  = 1 << 2,
-            Mirror   = 1 << 3,
-            Glass    = 1 << 4
+            Matte    = 1 << 0,
+            Plastic  = 1 << 1,
+            Mirror   = 1 << 2,
+            Glass    = 1 << 3
         };  /* -----  end of enum Material::Type  ----- */
 
     public:

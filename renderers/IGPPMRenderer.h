@@ -42,7 +42,7 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 4;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 1;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
@@ -58,30 +58,35 @@ class IGPPMRenderer : public Renderer {
             PhotonShootingPass, FinalGatheringPass
         };
 
-        class PixelSample {
+        class PixelSample : public HitPoint {
             public:
-                unsigned int    isHit;
-                Intersection *  intersection;
+                enum Flag {
+                    Finished  = HitPoint::User << 0
+                };
+
+            public:
+                unsigned int    nEmittedPhotonsOffset;
+                unsigned int    nSampled;
+                optix::float3   radiance;
                 optix::float3   wo;
+                optix::float3   throughput;
                 optix::float3   direct;
 
                 __device__ __inline__ void reset()
                 {
-                    isHit   = false;
+                    HitPoint::reset();
                     direct  = optix::make_float3(0.0f);
                 }
         };
 
         class Importon : public GatherPoint {
             public:
-                unsigned int    isHit;
-                Intersection *  intersection;
                 optix::float3   weight;
                 optix::float3   wo;
 
                 __device__ __inline__ void reset()
                 {
-                    isHit  = false;
+                    GatherPoint::reset();
                 }
         };
 

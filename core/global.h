@@ -25,7 +25,7 @@ namespace MaoPPM {
 /*----------------------------------------------------------------------------
  *  default global settings
  *----------------------------------------------------------------------------*/
-static const unsigned int  DEFAULT_STACK_SIZE       = 2048;
+static const unsigned int  DEFAULT_STACK_SIZE       = 4096;
 static const unsigned int  DEFAULT_WIDTH            = 512;
 static const unsigned int  DEFAULT_HEIGHT           = 512;
 static const float         DEFAULT_TIMEOUT          = 0.0f;    // forever
@@ -33,6 +33,8 @@ static const unsigned int  DEFAULT_INPUT_HEAP_SIZE  = 32;                 //  32
 static const unsigned int  DEFAULT_LOCAL_HEAP_SIZE  = 256 * 1024 * 1024;  // 256 MB
 static const float         DEFAULT_RAY_EPSILON      = 1.0e-2f;
 static const unsigned int  DEFAULT_MAX_RAY_DEPTH    = 4;
+
+static const unsigned int  DEFAULT_N_PHOTON_USED    = 32;
 
 /*----------------------------------------------------------------------------
  *  typedefs

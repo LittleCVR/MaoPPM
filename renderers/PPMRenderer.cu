@@ -24,6 +24,11 @@
 #include    <optix_world.h>
 
 /*----------------------------------------------------------------------------
+ *  header files from std C/C++
+ *----------------------------------------------------------------------------*/
+#include    <limits>
+
+/*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
@@ -106,22 +111,22 @@ RT_PROGRAM void generatePixelSamples()
     NormalRayPayload payload;
     payload.reset();
     rtTrace(rootObject, ray, payload);
-    pixelSample.isHit = payload.isHit;
-    if (!pixelSample.isHit) return;
+    if (!payload.isHit) return;
+    pixelSample.flags |= PixelSample::isHit;
 
     // Fill pixel sample data if hit.
-    pixelSample.intersection   = payload.intersection();
-    pixelSample.wo             = -ray.direction;
-    pixelSample.direct         = make_float3(0.0f);
-    pixelSample.flux           = make_float3(0.0f);
-    pixelSample.nPhotons       = 0;
+    pixelSample.setIntersection(payload.intersection());
+    pixelSample.wo        = -ray.direction;
+    pixelSample.direct    = make_float3(0.0f);
+    pixelSample.flux      = make_float3(0.0f);
+    pixelSample.nPhotons  = 0;
     /* TODO: hard coded */
     pixelSample.radiusSquared  = 32.0f;
 
     /* TODO: move this task to the light class */
     // Evaluate direct illumination.
     float3 Li;
-    Intersection * intersection = pixelSample.intersection;
+    Intersection * intersection = pixelSample.intersection();
     {
         const Light * light = &lightList[0];
         float3 shadowRayDirection = light->position - intersection->dg()->point;
@@ -129,24 +134,12 @@ RT_PROGRAM void generatePixelSamples()
         float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
         float distance = sqrtf(distanceSquared);
 
-//        /* TODO: remove these debug lines */
-//        if (launchIndex.x == 449 && launchIndex.y == 252) {
-//            rtPrintf("normal "); dump(intersection.dg()->normal); rtPrintf("\n");
-//            rtPrintf("dpdu "); dump(intersection.dg()->dpdu); rtPrintf("\n");
-//            rtPrintf("dpdv "); dump(intersection.dg()->dpdv); rtPrintf("\n");
-//        }
-//        //outputBuffer[launchIndex] = make_float4(intersection.dg()->normal / 2.0f + 0.5f, 1.0f);
-//        //outputBuffer[launchIndex] = make_float4(normalize(intersection.dg()->dpdu) / 2.0f + 0.5f, 1.0f);
-//        //outputBuffer[launchIndex] = make_float4(normalize(intersection.dg()->dpdv) / 2.0f + 0.5f, 1.0f);
-//        outputBuffer[launchIndex] = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-
         ShadowRayPayload shadowRayPayload;
         shadowRayPayload.reset();
         ray = Ray(intersection->dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-//        BSDF * bsdf = intersection->bsdf();
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
         Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
@@ -179,7 +172,6 @@ RT_PROGRAM void shootPhotons()
     uint depth = 0;
     float3 wo, wi, flux;
     Intersection * intersection  = NULL;
-//    BSDF         * bsdf          = NULL;
     BSDF bsdf;
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
@@ -245,77 +237,65 @@ RT_PROGRAM void estimateDensity()
 {
     // Do not have to gather photons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
-    if (!pixelSample.isHit) return;
+    if (!(pixelSample.flags & PixelSample::isHit)) return;
 
-    /* TODO: move this task to the KdTree class */
-    // Compute indirect illumination.
-    float3 flux = make_float3(0.0f);
+    // Gather.
+    Intersection * intersection = pixelSample.intersection();
+    BSDF bsdf; intersection->getBSDF(&bsdf);
+    // First time should use LimitedPhotonGatherer to find initial radius.
+    // Otherwise just gather all the photons in range.
     uint nAccumulatedPhotons = 0;
-    {
-        uint stack[32];
-        uint stackPosition = 0;
-        uint stackNode     = 0;
-        stack[stackPosition++] = 0;
-        do {
-            const Photon & photon = photonMap[stackNode];
-            if (photon.flags == KdTree<Photon>::Null)
-                stackNode = stack[--stackPosition];
-            else {
-                Intersection * intersection  = pixelSample.intersection;
-                BSDF bsdf; intersection->getBSDF(&bsdf);
-                float3 diff = intersection->dg()->point - photon.position;
-                float distanceSquared = dot(diff, diff);
-                // Do not gather direct photons.
-                if (distanceSquared < pixelSample.radiusSquared)
-                {
-                    float3 f = bsdf.f(pixelSample.wo, photon.wi);
-//                    float  s = 1.0f - distanceSquared / pixelSample.radiusSquared;
-//                    float  k = 3.0f * s * s / M_PIf;
-//                    flux += k * f * photon.flux;
-                    if (!isBlack(f)) {
-                        flux += f * photon.flux;
-                        ++nAccumulatedPhotons;
-                    }
-                }
+    float3 flux = make_float3(0.0f);
+    float maxDistanceSquared = pixelSample.radiusSquared;
+    if (frameCount == 0) {
+        Index gatheredPhotonListIndex =
+            LOCAL_HEAP_ALLOC_SIZE(nPhotonsUsed * sizeof(GatheredPhoton));
+        GatheredPhoton * gatheredPhotonList =
+            LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
 
-                if (photon.flags & KdTree<Photon>::Leaf)
-                    stackNode = stack[--stackPosition];
-                else {
-                    float d;
-                    if      (photon.flags & KdTree<Photon>::AxisX)  d = diff.x;
-                    else if (photon.flags & KdTree<Photon>::AxisY)  d = diff.y;
-                    else                                            d = diff.z;
+        LimitedPhotonGatherer gatherer(gatheredPhotonList);
+        KdTree::find(pixelSample.intersection()->dg()->point,
+                &photonMap[0], &gatherer, &maxDistanceSquared);
+        // KdTree::find() may shrink the radius. So write it back to pixelSample.
+        pixelSample.radiusSquared = maxDistanceSquared;
 
-                    // Calculate the next child selector. 0 is left, 1 is right.
-                    int selector = d < 0.0f ? 0 : 1;
-                    if (d*d < pixelSample.radiusSquared)
-                        stack[stackPosition++] = (stackNode << 1) + 2 - selector;
-                    stackNode = (stackNode << 1) + 1 + selector;
-                }
-            }
-        } while (stackNode != 0) ;
-
-        // Compute new N, R.
-        /* TODO: let alpha be configurable */
-        float alpha = 0.7f;
-        float R2 = pixelSample.radiusSquared;
-        float N = pixelSample.nPhotons;
-        float M = static_cast<float>(nAccumulatedPhotons) ;
-        float newN = N + alpha*M;
-        pixelSample.nPhotons = newN;
-
-        float reductionFactor2 = 1.0f;
-        float newR2 = R2;
-        if (M != 0) {
-            reductionFactor2 = (N + alpha*M) / (N + M);
-            newR2 = R2 * reductionFactor2;
-            pixelSample.radiusSquared = newR2;
+        // Accumulate flux.
+        nAccumulatedPhotons = gatherer.nFound;
+        for (unsigned int i = 0; i < gatherer.nFound; ++i) {
+            const Photon * photon = gatherer.gatheredPhotonList[i].photon;
+            float3 f = bsdf.f(pixelSample.wo, photon->wi);
+            if (!isBlack(f))
+                flux += f * photon->flux;
         }
-
-        // Compute indirect flux.
-        float3 newFlux = (pixelSample.flux + flux) * reductionFactor2;
-        pixelSample.flux = newFlux;
     }
+    else {  // frameCount != 0
+        PhotonGatherer gatherer(&pixelSample.wo, &bsdf);
+        KdTree::find(pixelSample.intersection()->dg()->point,
+                &photonMap[0], &gatherer, &maxDistanceSquared);
+        flux = gatherer.flux;
+        nAccumulatedPhotons = gatherer.nFound;
+    }
+
+    // Compute new N, R.
+    /* TODO: let alpha be configurable */
+    float alpha = 0.7f;
+    float R2 = pixelSample.radiusSquared;
+    float N = pixelSample.nPhotons;
+    float M = static_cast<float>(nAccumulatedPhotons) ;
+    float newN = N + alpha*M;
+    pixelSample.nPhotons = newN;
+
+    float reductionFactor2 = 1.0f;
+    float newR2 = R2;
+    if (M != 0) {
+        reductionFactor2 = (N + alpha*M) / (N + M);
+        newR2 = R2 * reductionFactor2;
+        pixelSample.radiusSquared = newR2;
+    }
+
+    // Compute indirect flux.
+    float3 newFlux = (pixelSample.flux + flux) * reductionFactor2;
+    pixelSample.flux = newFlux;
 
     float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
     outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);

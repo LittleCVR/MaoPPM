@@ -45,6 +45,9 @@ namespace MaoPPM {
 #define LOCAL_HEAP_ALLOC(type) \
     atomicAdd(&localHeapPointer[0], sizeof(type))
 
+#define LOCAL_HEAP_ALLOC_SIZE(size) \
+    atomicAdd(&localHeapPointer[0], size)
+
 #define LOCAL_HEAP_GET_OBJECT_POINTER(type, index) \
     reinterpret_cast<type *>(&localHeap[index]);
 

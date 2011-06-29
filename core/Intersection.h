@@ -54,9 +54,16 @@ namespace MaoPPM {
 class Intersection {
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ DifferentialGeometry * dg() { return &m_dg; }
+        __device__ __inline__ DifferentialGeometry * dg()
+        {
+            return &m_dg;
+        }
+        __device__ __inline__ const DifferentialGeometry * dg() const
+        {
+            return &m_dg;
+        }
 
-        __device__ __inline__ void getBSDF(BSDF * bsdf)
+        __device__ __inline__ void getBSDF(BSDF * bsdf) const
         {
             CALL_MATERIAL_VIRTUAL_FUNCTION( , , m_material, getBSDF, m_dg, bsdf);
         }

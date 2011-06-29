@@ -49,14 +49,15 @@ class Glass : public Material {
         {
             *bsdf = BSDF(dg, dg.normal);
             unsigned int offset = 0;
-            if (!isBlack(m_kr)) {
-                // SpecularReflection.
-                SpecularReflection * ref = reinterpret_cast<SpecularReflection *>(bsdf->bxdfAt(offset));
-                *ref = SpecularReflection(m_kr);
-                FresnelDielectric * fresnel = reinterpret_cast<FresnelDielectric *>(ref->fresnel());
-                *fresnel = FresnelDielectric(1.0f, m_index);
-                ++offset;
-            }
+            /* TODO: */
+//            if (!isBlack(m_kr)) {
+//                // SpecularReflection.
+//                SpecularReflection * ref = reinterpret_cast<SpecularReflection *>(bsdf->bxdfAt(offset));
+//                *ref = SpecularReflection(m_kr);
+//                FresnelDielectric * fresnel = reinterpret_cast<FresnelDielectric *>(ref->fresnel());
+//                *fresnel = FresnelDielectric(1.0f, m_index);
+//                ++offset;
+//            }
             if (!isBlack(m_kt)) {
                 // SpecularTransmission.
                 SpecularTransmission * tran = reinterpret_cast<SpecularTransmission *>(bsdf->bxdfAt(offset));

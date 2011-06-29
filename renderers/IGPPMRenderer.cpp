@@ -1,5 +1,5 @@
 /*
- * =====================================================================================
+ * =============================================================================
  *
  *       Filename:  IGPPMRenderer.cpp
  *
@@ -13,19 +13,14 @@
  *                  Department of Computer Science & Information Engineering,
  *                  National Taiwan University
  *
- * =====================================================================================
+ * =============================================================================
  */
 
 #include    "IGPPMRenderer.h"
-#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  header files from std C/C++
  *----------------------------------------------------------------------------*/
-#include    <algorithm>
-#include    <cstdio>
-#include    <ctime>
-#include    <iostream>
 #include    <limits>
 
 /*----------------------------------------------------------------------------
@@ -136,9 +131,9 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     uint  nSamplesPerThread = 0;
     uint2 launchSize = make_uint2(0, 0);
 
-//    if (m_frame % 5 == 0)
-//        m_nEmittedPhotons = 0;
     context()["frameCount"]->setUint(m_frame++);
+    // ImportonShootingPass needs this.
+    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
 
     if (reset) {
         // pixel sample
@@ -154,6 +149,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         endClock    = clock();
         debug("\033[01;36mFinished launching pixel sampling pass in %f secs.\033[00m\n",
                 static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
+    }
 
         // importon
         debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
@@ -168,7 +164,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         endClock    = clock();
         debug("\033[01;36mFinished launching importon shooting pass in %f secs.\033[00m\n",
                 static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
-    }
+//    }
 
 //    // Dump average radius.
 //    const Importon * importonList = static_cast<Importon *>(m_importonList->map());
@@ -289,7 +285,7 @@ void IGPPMRenderer::createPhotonMap()
 
     // build acceleration
     Photon * photonMapPtr = photonListPtr;
-    KdTree<Photon>::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
+    KdTree::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
     delete [] validPhotonList;

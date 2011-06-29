@@ -17,7 +17,6 @@
  */
 
 #include    "IGPPMRenderer.h"
-#include    "PPMRenderer.h"
 
 /*----------------------------------------------------------------------------
  *  Header files from OptiX
@@ -86,42 +85,81 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
-    if (frameCount != 0) return;
-
-    // Clear output buffer.
-    if (frameCount == 0)
-        outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-    // Clear pixel sample.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
-    pixelSample.reset();
-
-    /* TODO: move this task to the camera class */
-    // Generate camera ray.
-    Ray ray;
-    {
-        float2 screenSize = make_float2(outputBuffer.size());
-        float2 sample = make_float2(0.5f, 0.5f); 
-        float2 cameraRayDirection = (make_float2(launchIndex) + sample) / screenSize * 2.0f - 1.0f;
-        float3 worldRayDirection = normalize(cameraRayDirection.x*cameraU + cameraRayDirection.y*cameraV + cameraW);
-        ray = Ray(cameraPosition, worldRayDirection, NormalRay, rayEpsilon);
+    // Clear output buffer.
+    if (frameCount == 0) {
+        outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+        pixelSample.flags    = 0;
+        pixelSample.direct   = make_float3(0.0f);
+        pixelSample.radiance = make_float3(0.0f);
+        pixelSample.nSampled = 0;
+        pixelSample.nEmittedPhotonsOffset = 0;
+        pixelSample.throughput = make_float3(1.0f);
     }
+    else {
+        // Return immediately if not finished.
+        if (!(pixelSample.flags & PixelSample::Finished))
+            return;
+    }
+    // Clear pixel sample.
+    pixelSample.flags &= ~PixelSample::isHit;
 
-    // Intersect with the scene.
+    Ray ray;
     NormalRayPayload payload;
-    payload.reset();
-    rtTrace(rootObject, ray, payload);
-    pixelSample.isHit = payload.isHit;
-    if (!pixelSample.isHit) return;
+    uint depth = 0;
+    float3 wo, wi;
+    Intersection * intersection  = NULL;
+    BSDF bsdf;
+    /* TODO: hard coded max depth */
+    for (uint i = 0; i < DEFAULT_MAX_RAY_DEPTH; ++i) {
+        if (depth == 0) {
+            /* TODO: move this task to the camera class */
+            // Generate camera ray.
+            float2 screenSize = make_float2(outputBuffer.size());
+            float2 sample = make_float2(0.5f, 0.5f); 
+            float2 cameraRayDirection = (make_float2(launchIndex) + sample) / screenSize * 2.0f - 1.0f;
+            wi = normalize(cameraRayDirection.x*cameraU + cameraRayDirection.y*cameraV + cameraW);
+            ray = Ray(cameraPosition, wi, NormalRay, rayEpsilon);
+        }
+        else {
+            float  probability;
+            // Do not have to use real sample since the surface is perfect specular.
+            float3 sample = make_float3(0.0f);
+            float3 f = bsdf.sampleF(wo, &wi, sample, &probability,
+                    BxDF::Type(BxDF::Reflection | BxDF::Transmission | BxDF::Specular));
+            pixelSample.throughput *= f * fabsf(dot(wi, intersection->dg()->normal)) / probability;
+            ray = Ray(intersection->dg()->point, wi, NormalRay, rayEpsilon);
+        }
 
-    // Fill pixel sample data if hit.
-    pixelSample.intersection  = payload.intersection();
-    pixelSample.wo            = -ray.direction;
-    pixelSample.direct        = make_float3(0.0f);
+        // Intersect with the scene.
+        payload.reset();
+        rtTrace(rootObject, ray, payload);
+        if (!payload.isHit)
+            return;
+
+        ++depth;
+        wo = -wi;
+
+        intersection = payload.intersection();
+        intersection->getBSDF(&bsdf);
+        if (launchIndex.x == 92 && launchIndex.y == 60) {
+            rtPrintf("depth: %u, material type: %u\n", depth, intersection->m_material->type());
+        }
+        // If the surface is not a perfect specular surface.
+        if (depth == DEFAULT_MAX_RAY_DEPTH ||
+            bsdf.nBxDFs(BxDF::Type(BxDF::All & ~BxDF::Specular)) > 0)
+        {
+            pixelSample.flags |= PixelSample::isHit;
+            pixelSample.setIntersection(intersection);
+            pixelSample.wo = wo;
+            break;
+        }
+    }
 
     /* TODO: move this task to the light class */
     // Evaluate direct illumination.
     float3 Li;
-    Intersection * intersection = pixelSample.intersection;
+    intersection = pixelSample.intersection();
     {
         const Light * light = &lightList[0];
         float3 shadowRayDirection = light->position - intersection->dg()->point;
@@ -129,30 +167,19 @@ RT_PROGRAM void generatePixelSamples()
         float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
         float distance = sqrtf(distanceSquared);
 
-//        /* TODO: remove these debug lines */
-//        if (launchIndex.x == 449 && launchIndex.y == 252) {
-//            rtPrintf("normal "); dump(intersection.dg()->normal); rtPrintf("\n");
-//            rtPrintf("dpdu "); dump(intersection.dg()->dpdu); rtPrintf("\n");
-//            rtPrintf("dpdv "); dump(intersection.dg()->dpdv); rtPrintf("\n");
-//        }
-//        //outputBuffer[launchIndex] = make_float4(intersection.dg()->normal / 2.0f + 0.5f, 1.0f);
-//        //outputBuffer[launchIndex] = make_float4(normalize(intersection.dg()->dpdu) / 2.0f + 0.5f, 1.0f);
-//        //outputBuffer[launchIndex] = make_float4(normalize(intersection.dg()->dpdv) / 2.0f + 0.5f, 1.0f);
-//        outputBuffer[launchIndex] = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-
         ShadowRayPayload shadowRayPayload;
         shadowRayPayload.reset();
         ray = Ray(intersection->dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
         rtTrace(rootObject, ray, shadowRayPayload);
         if (shadowRayPayload.isHit) return;
 
-        BSDF bsdf; intersection->getBSDF(&bsdf);
+        intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
         Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
             / (4.0f * M_PIf * distanceSquared);
     }
 
-    pixelSample.direct = Li;
+    pixelSample.direct = Li * pixelSample.throughput;
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -165,11 +192,13 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootImportons()
 {
-    if (frameCount != 0) return;
-
-    // Does not have to shoot importons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
-    if (!pixelSample.isHit) return;
+    // Does not have to shoot importons if pixel sample was not hit.
+    if (!(pixelSample.flags & PixelSample::isHit))
+        return;
+    if (frameCount != 0 && !(pixelSample.flags & PixelSample::Finished))
+        return;
+    pixelSample.nEmittedPhotonsOffset = nEmittedPhotons;
 
     // Prepare offset variables.
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
@@ -179,13 +208,13 @@ RT_PROGRAM void shootImportons()
     for (uint i = 0; i < nImportonsPerThread; i++)
         importonList[importonIndex+i].reset();
 
-    Intersection *  intersection  = pixelSample.intersection;
+    Intersection *  intersection  = pixelSample.intersection();
     BSDF bsdf; intersection->getBSDF(&bsdf);
     // other importons
     for (uint i = 0; i < nImportonsPerThread; i++) {
         // do not re-shoot if this importon is valid
         Importon & importon = importonList[importonIndex++];
-        if (importon.isHit) continue;
+        if (importon.flags & Importon::isHit) continue;
 
         // sample direction
         float3 wi;
@@ -199,15 +228,15 @@ RT_PROGRAM void shootImportons()
         NormalRayPayload payload;
         payload.reset();
         rtTrace(rootObject, ray, payload);
-        importon.isHit = payload.isHit;
-        if (!importon.isHit) continue;
+        if (!payload.isHit)
+            continue;
+        else
+            importon.flags |= Importon::isHit;
 
         // importon
-        importon.weight         = f / probability;
-        importon.intersection   = payload.intersection();
-        importon.wo             = -wi;
-        importon.flux           = make_float3(0.0f);
-        importon.nPhotons       = 0;
+        importon.setIntersection(payload.intersection());
+        importon.weight    = f / probability;
+        importon.wo        = -wi;
         /*TODO*/
         importon.radiusSquared  = 32.0f;
     }
@@ -284,7 +313,7 @@ RT_PROGRAM void shootPhotons()
         rtTrace(rootObject, ray, payload);
         if (!payload.isHit) continue;
         wi = -wo;
-        intersection  = payload.intersection();
+        intersection = payload.intersection();
         intersection->getBSDF(&bsdf);
 
         // create photon
@@ -318,28 +347,30 @@ RT_PROGRAM void gatherPhotons()
 {
     // Do not have to gather photons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
-    if (!pixelSample.isHit) return;
+    if (!(pixelSample.flags & PixelSample::isHit)) return;
+    pixelSample.flags &= ~PixelSample::Finished;
 
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     uint importonIndex = nImportonsPerThread * offset;
 
     /* TODO: move this task to the KdTree class */
     // Compute indirect illumination.
+    float greatestReductionFactor2 = 0.0f;
     for (uint i = 0; i < nImportonsPerThread; ++i) {
         Importon & importon = importonList[importonIndex+i];
         float3 flux = make_float3(0.0f);
         uint nAccumulatedPhotons = 0;
-        if (importon.isHit) {
+        if (importon.flags & Importon::isHit) {
             uint stack[32];
             uint stackPosition = 0;
             uint stackNode     = 0;
             stack[stackPosition++] = 0;
             do {
                 const Photon & photon = photonMap[stackNode];
-                if (photon.flags == KdTree<Photon>::Null)
+                if (photon.flags == KdTree::Null)
                     stackNode = stack[--stackPosition];
                 else {
-                    Intersection * intersection  = importon.intersection;
+                    Intersection * intersection  = importon.intersection();
                     BSDF bsdf; intersection->getBSDF(&bsdf);
                     float3 diff = intersection->dg()->point - photon.position;
                     float distanceSquared = dot(diff, diff);
@@ -351,13 +382,13 @@ RT_PROGRAM void gatherPhotons()
                         }
                     }
 
-                    if (photon.flags & KdTree<Photon>::Leaf)
+                    if (photon.flags & KdTree::Leaf)
                         stackNode = stack[--stackPosition];
                     else {
                         float d;
-                        if      (photon.flags & KdTree<Photon>::AxisX)  d = diff.x;
-                        else if (photon.flags & KdTree<Photon>::AxisY)  d = diff.y;
-                        else                                            d = diff.z;
+                        if      (photon.flags & KdTree::AxisX)  d = diff.x;
+                        else if (photon.flags & KdTree::AxisY)  d = diff.y;
+                        else                                    d = diff.z;
 
                         // Calculate the next child selector. 0 is left, 1 is right.
                         int selector = d < 0.0f ? 0 : 1;
@@ -385,56 +416,44 @@ RT_PROGRAM void gatherPhotons()
                 importon.radiusSquared = newR2;
             }
 
+            if (greatestReductionFactor2 < reductionFactor2)
+                greatestReductionFactor2 = reductionFactor2;
+
             // Compute indirect flux.
             float3 newFlux = (importon.flux + flux) * reductionFactor2;
             importon.flux = newFlux;
-
-//            /* TODO: remove these debug lines */
-//            if (launchIndex.x == 449 && launchIndex.y == 252) {
-//                rtPrintf("import flux: "); dump(importon.flux); rtPrintf("\n");
-//            }
         }
     }
 
-    Intersection * intersection  = pixelSample.intersection;
-//    BSDF         * bsdf          = intersection->bsdf();
+    Intersection * intersection = pixelSample.intersection();
     BSDF bsdf; intersection->getBSDF(&bsdf);
     unsigned int nValidImportons = 0;
     float3 indirect = make_float3(0.0f);
     for (uint i = 0; i < nImportonsPerThread; i++) {
         Importon & importon = importonList[importonIndex+i];
-        if (importon.isHit) {
+        if (importon.flags & Importon::isHit) {
             ++nValidImportons;
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
             indirect += importon.weight * Li * fabsf(dot(intersection->dg()->normal, importon.wo));
-//            /*TODO*/
-//            if (importon.isHit == 99) {
-//                float nImportons = static_cast<float>(pixelSample.nImportons);
-//                pixelSample.indirect = (nImportons / (nImportons + 1.0f)) * pixelSample.indirect +
-//                    (1.0f / (nImportons + 1.0f)) * L;
-//                importon.isHit = false;
-//            } else {
-//                indirect += L;
-//            }
-//            /*TODO*/
-//            if (launchIndex.x == 449 && launchIndex.y == 252) {
-//                rtPrintf("indirect: "); dump(indirect); rtPrintf("\n");
-//            }
         }
     }
     if (nValidImportons != 0)
-        indirect = indirect / nEmittedPhotons / nValidImportons;
-    /*TODO*/
-//    if (launchIndex.x == 449 && launchIndex.y == 252) {
-//        rtPrintf("indirect: "); dump(indirect); rtPrintf("\n");
-//    }
+        indirect = indirect * pixelSample.throughput /
+            (nEmittedPhotons - pixelSample.nEmittedPhotonsOffset) / nValidImportons;
 
-//    /*TODO*/
-//    if (frameCount % 5 == 4) {
-//        float  frame = static_cast<float>(frameCount / 5);
-//        float4 color = make_float4(pixelSample.direct + indirect, 1.0f);
-//        outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * color +
-//            (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
-//    }
-    outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);
+    /* TODO: test */
+    if (nValidImportons == 0 || greatestReductionFactor2 > 0.9f)
+        pixelSample.flags |= PixelSample::Finished;
+
+    // Average.
+    float3 color = indirect;
+    float nSampled = static_cast<float>(pixelSample.nSampled);
+    color = (1.0f / (nSampled + 1.0f)) * color +
+        (nSampled / (nSampled + 1.0f)) * pixelSample.radiance;
+    if (pixelSample.flags & PixelSample::Finished)
+    {
+        pixelSample.radiance = color;
+        ++pixelSample.nSampled;
+    }
+    outputBuffer[launchIndex] = make_float4(pixelSample.direct + color, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

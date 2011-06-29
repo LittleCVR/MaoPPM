@@ -42,6 +42,7 @@ namespace MaoPPM {
  */
 class PPMRenderer : public Renderer {
     public:
+        static const unsigned int  DEFAULT_N_PHOTONS_USED    = 32;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED  = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
@@ -58,14 +59,12 @@ class PPMRenderer : public Renderer {
 
         class PixelSample : public GatherPoint {
             public:
-                unsigned int    isHit;
-                Intersection *  intersection;
                 optix::float3   wo;
                 optix::float3   direct;
 
                 __device__ __inline__ void reset()
                 {
-                    isHit   = false;
+                    GatherPoint::reset();
                     direct  = optix::make_float3(0.0f);
                 }
         };
@@ -79,6 +78,7 @@ class PPMRenderer : public Renderer {
         void    render(const Scene::RayGenCameraData & cameraData);
 
     private:
+        unsigned int   m_nPhotonsUsed;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;
         unsigned int   m_photonShootingPassLaunchWidth;
@@ -89,6 +89,8 @@ class PPMRenderer : public Renderer {
         unsigned int   m_pixelSamplingPassLocalHeapSize;
         unsigned int   m_photonShootingPassLocalHeapOffset;
         unsigned int   m_photonShootingPassLocalHeapSize;
+        unsigned int   m_densityEstimationPassLocalHeapOffset;
+        unsigned int   m_densityEstimationPassLocalHeapSize;
         unsigned int   m_demandLocalHeapSize;
         unsigned int   m_frame;
 };  /* -----  end of class PPMRenderer  ----- */

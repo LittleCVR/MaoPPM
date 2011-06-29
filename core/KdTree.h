@@ -22,6 +22,11 @@
  *----------------------------------------------------------------------------*/
 #include    <optix_world.h>
 
+/*----------------------------------------------------------------------------
+ *  header files from std C/C++
+ *----------------------------------------------------------------------------*/
+#include    <algorithm>
+
 /*---------------------------------------------------------------------------
  *  header files of our own
  *---------------------------------------------------------------------------*/
@@ -31,7 +36,6 @@
 
 namespace MaoPPM {
 
-template<typename T>
 class KdTree {
     public:
         enum Flag {
@@ -44,20 +48,24 @@ class KdTree {
         };
 
     public:
+        template<typename T>
         static bool positionXComparator(const T & node1, const T & node2)
         {
             return node1.position.x < node2.position.x;
         }
+        template<typename T>
         static bool positionYComparator(const T & node1, const T & node2)
         {
             return node1.position.y < node2.position.y;
         }
+        template<typename T>
         static bool positionZComparator(const T & node1, const T & node2)
         {
             return node1.position.z < node2.position.z;
         }
 
     public:
+        template<typename T>
         static void build(T * nodeList,
                 unsigned int start, unsigned int end, T * tree,
                 unsigned int root, optix::float3 bbMin, optix::float3 bbMax)
@@ -93,11 +101,11 @@ class KdTree {
             // Partition the node list.
             unsigned int median = (start + end) / 2;
             if (axis == AxisX)
-                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionXComparator);
+                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionXComparator<T>);
             else if (axis == AxisY)
-                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionYComparator);
+                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionYComparator<T>);
             else if (axis == AxisZ)
-                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionZComparator);
+                nth_element(&nodeList[start], &nodeList[median], &nodeList[end], positionZComparator<T>);
             else
                 assert(false);  // This should never happen.
             nodeList[median].flags |= axis;
@@ -128,6 +136,48 @@ class KdTree {
             build(nodeList, start, median, tree, 2*root+1, bbMin,  leftMax);
             build(nodeList, median+1, end, tree, 2*root+2, rightMin, bbMax);
         }   /* -----  end of method KdTree::build----- */
+
+#ifdef __CUDACC__
+    public:
+        template <typename T, typename G>
+        __device__ __inline__ static void find(
+                const optix::float3 & point, const T * nodeList,
+                G * gatherer, float * maxDistanceSquared)
+        {
+            optix::float3 flux = optix::make_float3(0.0f);
+
+            uint stack[32];
+            uint stackPosition = 0;
+            uint stackNode     = 0;
+            stack[stackPosition++] = 0;
+            do {
+                const T * node = &nodeList[stackNode];
+                if (node->flags == Null)
+                    stackNode = stack[--stackPosition];
+                else {
+                    float3 diff = point - node->position;
+                    float distanceSquared = optix::dot(diff, diff);
+                    if (distanceSquared < *maxDistanceSquared)
+                        gatherer->gather(point, node, distanceSquared, maxDistanceSquared);
+
+                    if (node->flags & Leaf)
+                        stackNode = stack[--stackPosition];
+                    else {
+                        float d;
+                        if      (node->flags & AxisX)  d = diff.x;
+                        else if (node->flags & AxisY)  d = diff.y;
+                        else                           d = diff.z;
+
+                        // Calculate the next child selector. 0 is left, 1 is right.
+                        int selector = d < 0.0f ? 0 : 1;
+                        if (d*d < *maxDistanceSquared)
+                            stack[stackPosition++] = (stackNode << 1) + 2 - selector;
+                        stackNode = (stackNode << 1) + 1 + selector;
+                    }
+                }
+            } while (stackNode != 0) ;
+        }
+#endif  /* -----  #ifdef __CUDACC__  ----- */
 };  /* -----  end of class KdTree  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

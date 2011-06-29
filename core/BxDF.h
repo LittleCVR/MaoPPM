@@ -58,20 +58,20 @@ class BxDF {
         enum Type {
             Null            = 0,
             // basic types,
-            Reflection      = 1 << 31,
-            Transmission    = 1 << 30,
-            Diffuse         = 1 << 29,
-            Glossy          = 1 << 28,
-            Specular        = 1 << 27,
+            Reflection      = 1 << 0,
+            Transmission    = 1 << 1,
+            Diffuse         = 1 << 2,
+            Glossy          = 1 << 3,
+            Specular        = 1 << 4,
             AllType         = Diffuse | Glossy | Specular,
             AllReflection   = Reflection | AllType,
             AllTransmission = Transmission | AllType,
             All             = AllReflection | AllTransmission,
             // BxDF types
-            Lambertian            = 1 << 0,
-            SpecularReflection    = 1 << 1,
-            SpecularTransmission  = 1 << 2,
-            Microfacet            = 1 << 3
+            Lambertian            = 1 << 5,
+            SpecularReflection    = 1 << 6,
+            SpecularTransmission  = 1 << 7,
+            Microfacet            = 1 << 8
         };  /* -----  end of enum BxDF::Type  ----- */
 
 #ifdef __CUDACC__

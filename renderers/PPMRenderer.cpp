@@ -21,17 +21,12 @@
 /*----------------------------------------------------------------------------
  *  header files from std C/C++
  *----------------------------------------------------------------------------*/
-#include    <algorithm>
-#include    <cstdio>
-#include    <ctime>
-#include    <iostream>
 #include    <limits>
 
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "payload.h"
-#include    "Intersection.h"
 #include    "Scene.h"
 
 /*----------------------------------------------------------------------------
@@ -44,6 +39,7 @@ using namespace MaoPPM;
 
 
 PPMRenderer::PPMRenderer(Scene * scene) : Renderer(scene),
+    m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
     m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
     m_photonShootingPassLaunchWidth(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH),
     m_photonShootingPassLaunchHeight(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT)
@@ -69,8 +65,6 @@ void PPMRenderer::init()
     debug("sizeof(PixelSample) = \033[01;31m%4d\033[00m.\n", sizeof(PixelSample));
     debug("sizeof(Photon)      = \033[01;31m%4d\033[00m.\n", sizeof(Photon));
 
-    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
-
     // buffers
     m_pixelSampleList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_pixelSampleList->setElementSize(sizeof(PixelSample));
@@ -86,6 +80,8 @@ void PPMRenderer::init()
             sizeof(Photon) * m_nPhotonsWanted);
 
     // variables
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
+    context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
     context()["nEmittedPhotons"]->setUint(0);
 
@@ -161,6 +157,7 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     // gathering
     debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
+    setLocalHeapPointer(m_densityEstimationPassLocalHeapOffset);
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
@@ -178,16 +175,22 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
     // Local heap.
     m_pixelSamplingPassLocalHeapSize =
         width * height * sizeof(Intersection);
-    debug("PixelSamplingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+    debug("PixelSamplingPass     demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_pixelSamplingPassLocalHeapSize);
     m_photonShootingPassLocalHeapSize =
         m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight *
         m_nPhotonsPerThread * sizeof(Intersection);
-    debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+    debug("PhotonShootingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_photonShootingPassLocalHeapSize);
-    m_photonShootingPassLocalHeapOffset =  m_pixelSamplingPassLocalHeapSize;
-    m_demandLocalHeapSize =
+    m_photonShootingPassLocalHeapOffset = m_pixelSamplingPassLocalHeapSize;
+    m_densityEstimationPassLocalHeapSize =
+        width * height * m_nPhotonsUsed * sizeof(GatheredPhoton);
+    debug("DensityEstimationPass demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            m_densityEstimationPassLocalHeapSize);
+    m_densityEstimationPassLocalHeapOffset =
         m_photonShootingPassLocalHeapOffset + m_photonShootingPassLocalHeapSize;
+    m_demandLocalHeapSize =
+        m_densityEstimationPassLocalHeapOffset + m_densityEstimationPassLocalHeapSize;
     setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method PPMRenderer::doResize  ----- */
 
@@ -223,7 +226,7 @@ void PPMRenderer::createPhotonMap()
 
     // build acceleration
     Photon * photonMapPtr = photonListPtr;
-    KdTree<Photon>::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
+    KdTree::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
     delete [] validPhotonList;
