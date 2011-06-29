@@ -50,7 +50,8 @@ class Light {
         optix::float3   position;
         optix::float3   flux;
 
-        float           pdf[N_THETA][N_PHI];
+        float           pdf [N_THETA * N_PHI];
+        float           cdf [N_THETA * N_PHI];
 
     public:
         __device__ __inline__ float area(

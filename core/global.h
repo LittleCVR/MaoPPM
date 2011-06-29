@@ -34,8 +34,6 @@ static const unsigned int  DEFAULT_LOCAL_HEAP_SIZE  = 256 * 1024 * 1024;  // 256
 static const float         DEFAULT_RAY_EPSILON      = 1.0e-2f;
 static const unsigned int  DEFAULT_MAX_RAY_DEPTH    = 4;
 
-static const unsigned int  DEFAULT_N_PHOTON_USED    = 32;
-
 /*----------------------------------------------------------------------------
  *  typedefs
  *----------------------------------------------------------------------------*/

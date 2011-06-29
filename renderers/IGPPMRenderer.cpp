@@ -21,6 +21,7 @@
 /*----------------------------------------------------------------------------
  *  header files from std C/C++
  *----------------------------------------------------------------------------*/
+#include    <cstdio>
 #include    <limits>
 
 /*----------------------------------------------------------------------------
@@ -38,12 +39,9 @@ using namespace MaoPPM;
 
 
 
-typedef MaoPPM::Photon Photon;
-
-
-
 IGPPMRenderer::IGPPMRenderer(Scene * scene) : Renderer(scene),
     m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
+    m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
     m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
     m_photonShootingPassLaunchWidth(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH),
     m_photonShootingPassLaunchHeight(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT)
@@ -70,8 +68,6 @@ void IGPPMRenderer::init()
     debug("sizeof(Importon)    = \033[01;31m%4d\033[00m.\n", sizeof(Importon));
     debug("sizeof(Photon)      = \033[01;31m%4d\033[00m.\n", sizeof(Photon));
 
-    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
-
     // buffers
     m_pixelSampleList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_pixelSampleList->setElementSize(sizeof(PixelSample));
@@ -92,7 +88,9 @@ void IGPPMRenderer::init()
             sizeof(Photon) * m_nPhotonsWanted);
 
     // variables
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
+    context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
     context()["nEmittedPhotons"]->setUint(0);
 
@@ -149,22 +147,29 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         endClock    = clock();
         debug("\033[01;36mFinished launching pixel sampling pass in %f secs.\033[00m\n",
                 static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
+
+        Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
+        Light * light = &lightList[0];
+        for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+            light->pdf[i] = 1.0f;
+            light->cdf[i] = static_cast<float>(i + 1) / static_cast<float>(N_THETA + N_PHI);
+        }
+        scene()->m_lightList->unmap();
     }
 
-        // importon
-        debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
-        setLocalHeapPointer(m_importonShootingPassLocalHeapOffset);
-        launchSize = make_uint2(width(), height());
-        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-        nSamplesPerThread = 3 * m_nImportonsPerThread;
-        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-        startClock  = clock();
-        context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
-        endClock    = clock();
-        debug("\033[01;36mFinished launching importon shooting pass in %f secs.\033[00m\n",
-                static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
-//    }
+    // importon
+    debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
+    setLocalHeapPointer(m_importonShootingPassLocalHeapOffset);
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 3 * m_nImportonsPerThread;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    startClock  = clock();
+    context()->launch(ImportonShootingPass, launchSize.x, launchSize.y);
+    endClock    = clock();
+    debug("\033[01;36mFinished launching importon shooting pass in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
 //    // Dump average radius.
 //    const Importon * importonList = static_cast<Importon *>(m_importonList->map());
@@ -179,6 +184,33 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //    debug("\033[01;33maverageRadiusSquared\033[00m: \033[01;31m%f\033[00m\n",
 //            averageRadiusSquared / static_cast<float>(nImportons));
 //    m_importonList->unmap();
+
+    Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
+    Light * light = &lightList[0];
+    float total = 0.0f, accumulated = 0.0f;
+    debug("light PDF:");
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        total += light->pdf[i];
+        if (i % N_THETA == 0) fprintf(stderr, "\n");
+        fprintf(stderr, "%4.4f ", light->pdf[i]);
+    }
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        accumulated += light->pdf[i];
+        if (total != 0.0f)
+            light->cdf[i] = 0.6f * light->cdf[i] + 0.3 * accumulated / total + 0.1f;
+        else
+            light->cdf[i] = 0.6f * light->cdf[i] + 0.4;
+        light->pdf[i] = 0.0f;
+    }
+    fprintf(stderr, "\n");
+    debug("light CDF:");
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
+        if (i % N_THETA == 0) fprintf(stderr, "\n");
+        fprintf(stderr, "%4.4f ", light->cdf[i]);
+    }
+    fprintf(stderr, "\n");
+    scene()->m_lightList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
@@ -250,10 +282,16 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
     m_photonShootingPassLocalHeapOffset =
         m_importonShootingPassLocalHeapOffset + m_importonShootingPassLocalHeapSize;
 
-    m_demandLocalHeapSize =
+    m_finalGatheringPassLocalHeapSize =
+        width * height * m_nPhotonsUsed * sizeof(GatheredPhoton);
+    debug("FinalGatheringPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
+            m_finalGatheringPassLocalHeapSize);
+    m_finalGatheringPassLocalHeapOffset =
         m_photonShootingPassLocalHeapOffset + m_photonShootingPassLocalHeapSize;
-    setLocalHeapSize(m_demandLocalHeapSize);
 
+    m_demandLocalHeapSize =
+        m_finalGatheringPassLocalHeapOffset + m_finalGatheringPassLocalHeapSize;
+    setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method IGPPMRenderer::resize  ----- */
 
 

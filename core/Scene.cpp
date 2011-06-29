@@ -192,7 +192,7 @@ void Scene::initScene(InitialCameraData & cameraData)
     m_rootObject->setAcceleration(acceleration);
 
     // Initialize light buffer.
-    m_lightList = context()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_USER);
+    m_lightList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_lightList->setElementSize(sizeof(Light));
     m_lightList->setSize(0);
     context()["lightList"]->set(m_lightList);

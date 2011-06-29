@@ -242,60 +242,30 @@ RT_PROGRAM void estimateDensity()
     // Gather.
     Intersection * intersection = pixelSample.intersection();
     BSDF bsdf; intersection->getBSDF(&bsdf);
-    // First time should use LimitedPhotonGatherer to find initial radius.
-    // Otherwise just gather all the photons in range.
     uint nAccumulatedPhotons = 0;
     float3 flux = make_float3(0.0f);
     float maxDistanceSquared = pixelSample.radiusSquared;
+    // First time should use LimitedPhotonGatherer to find initial radius.
+    // Otherwise just gather all the photons in range.
     if (frameCount == 0) {
         Index gatheredPhotonListIndex =
             LOCAL_HEAP_ALLOC_SIZE(nPhotonsUsed * sizeof(GatheredPhoton));
         GatheredPhoton * gatheredPhotonList =
             LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
-
-        LimitedPhotonGatherer gatherer(gatheredPhotonList);
-        KdTree::find(pixelSample.intersection()->dg()->point,
-                &photonMap[0], &gatherer, &maxDistanceSquared);
-        // KdTree::find() may shrink the radius. So write it back to pixelSample.
+        flux = LimitedPhotonGatherer::accumulateFlux(
+                intersection->dg()->point, pixelSample.wo, &bsdf,
+                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                gatheredPhotonList);
+        // maxDistanceSquared may be shrinked. So write it back to pixelSample.
         pixelSample.radiusSquared = maxDistanceSquared;
-
-        // Accumulate flux.
-        nAccumulatedPhotons = gatherer.nFound;
-        for (unsigned int i = 0; i < gatherer.nFound; ++i) {
-            const Photon * photon = gatherer.gatheredPhotonList[i].photon;
-            float3 f = bsdf.f(pixelSample.wo, photon->wi);
-            if (!isBlack(f))
-                flux += f * photon->flux;
-        }
     }
     else {  // frameCount != 0
-        PhotonGatherer gatherer(&pixelSample.wo, &bsdf);
-        KdTree::find(pixelSample.intersection()->dg()->point,
-                &photonMap[0], &gatherer, &maxDistanceSquared);
-        flux = gatherer.flux;
-        nAccumulatedPhotons = gatherer.nFound;
+        flux = PhotonGatherer::accumulateFlux(
+                intersection->dg()->point, pixelSample.wo, &bsdf,
+                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons);
     }
 
-    // Compute new N, R.
-    /* TODO: let alpha be configurable */
-    float alpha = 0.7f;
-    float R2 = pixelSample.radiusSquared;
-    float N = pixelSample.nPhotons;
-    float M = static_cast<float>(nAccumulatedPhotons) ;
-    float newN = N + alpha*M;
-    pixelSample.nPhotons = newN;
-
-    float reductionFactor2 = 1.0f;
-    float newR2 = R2;
-    if (M != 0) {
-        reductionFactor2 = (N + alpha*M) / (N + M);
-        newR2 = R2 * reductionFactor2;
-        pixelSample.radiusSquared = newR2;
-    }
-
-    // Compute indirect flux.
-    float3 newFlux = (pixelSample.flux + flux) * reductionFactor2;
-    pixelSample.flux = newFlux;
+    pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
 
     float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
     outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);

@@ -43,6 +43,7 @@ namespace MaoPPM {
 class IGPPMRenderer : public Renderer {
     public:
         static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD  = 1;
+        static const unsigned int  DEFAULT_N_PHOTONS_USED          = 32;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED        = 256*256*4;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
@@ -58,10 +59,10 @@ class IGPPMRenderer : public Renderer {
             PhotonShootingPass, FinalGatheringPass
         };
 
-        class PixelSample : public HitPoint {
+        class PixelSample : public GatherPoint {
             public:
                 enum Flag {
-                    Finished  = HitPoint::User << 0
+                    Finished  = GatherPoint::User << 0
                 };
 
             public:
@@ -74,7 +75,7 @@ class IGPPMRenderer : public Renderer {
 
                 __device__ __inline__ void reset()
                 {
-                    HitPoint::reset();
+                    GatherPoint::reset();
                     direct  = optix::make_float3(0.0f);
                 }
         };
@@ -111,6 +112,7 @@ class IGPPMRenderer : public Renderer {
         void    render(const Scene::RayGenCameraData & cameraData);
 
     private:
+        unsigned int   m_nPhotonsUsed;
         unsigned int   m_nImportonsPerThread;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;
@@ -125,6 +127,8 @@ class IGPPMRenderer : public Renderer {
         unsigned int   m_importonShootingPassLocalHeapSize;
         unsigned int   m_photonShootingPassLocalHeapOffset;
         unsigned int   m_photonShootingPassLocalHeapSize;
+        unsigned int   m_finalGatheringPassLocalHeapOffset;
+        unsigned int   m_finalGatheringPassLocalHeapSize;
         unsigned int   m_demandLocalHeapSize;
         unsigned int   m_frame;
 };  /* -----  end of class IGPPMRenderer  ----- */

@@ -45,6 +45,8 @@ namespace MaoPPM {
  */
 class Scene : public SampleScene {
     friend class Renderer;
+    /* TODO: remove */
+    friend class IGPPMRenderer;
     friend class SceneBuilder;
 
     public:

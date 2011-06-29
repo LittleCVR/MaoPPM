@@ -177,18 +177,21 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
         width * height * sizeof(Intersection);
     debug("PixelSamplingPass     demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_pixelSamplingPassLocalHeapSize);
+
     m_photonShootingPassLocalHeapSize =
         m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight *
         m_nPhotonsPerThread * sizeof(Intersection);
     debug("PhotonShootingPass    demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_photonShootingPassLocalHeapSize);
     m_photonShootingPassLocalHeapOffset = m_pixelSamplingPassLocalHeapSize;
+
     m_densityEstimationPassLocalHeapSize =
         width * height * m_nPhotonsUsed * sizeof(GatheredPhoton);
     debug("DensityEstimationPass demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_densityEstimationPassLocalHeapSize);
     m_densityEstimationPassLocalHeapOffset =
         m_photonShootingPassLocalHeapOffset + m_photonShootingPassLocalHeapSize;
+
     m_demandLocalHeapSize =
         m_densityEstimationPassLocalHeapOffset + m_densityEstimationPassLocalHeapSize;
     setLocalHeapSize(m_demandLocalHeapSize);
