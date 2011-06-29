@@ -132,7 +132,6 @@ RT_PROGRAM void trace()
                 Li = light.flux / (4.0f * M_PIf * distanceSquared);
 
             float3 f = bsdf.f(wo, normalizedShadowRayDirection);
-            if(depth>1)
             L += throughput * f * Li * fabsf(dot(normalizedShadowRayDirection, intersection->dg()->normal));
         }
     }
