@@ -43,7 +43,7 @@ using namespace MaoPPM;
 
 
 
-typedef PPMRenderer::Photon Photon;
+typedef MaoPPM::Photon Photon;
 
 
 

@@ -41,7 +41,7 @@ using namespace MaoPPM;
 
 
 typedef PPMRenderer::PixelSample  PixelSample;
-typedef PPMRenderer::Photon       Photon;
+typedef MaoPPM::Photon            Photon;
 
 
 
@@ -149,7 +149,8 @@ RT_PROGRAM void generatePixelSamples()
 //        BSDF * bsdf = intersection->bsdf();
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = f * light->flux / (4.0f * M_PIf * distanceSquared);
+        Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
+            / (4.0f * M_PIf * distanceSquared);
     }
 
     pixelSample.direct = Li;
@@ -216,6 +217,7 @@ RT_PROGRAM void shootPhotons()
 
         // create photon
         Photon & photon = photonList[photonIndex+i];
+        photon.reset();
         if (depth == 0)
             photon.flags |= Photon::Direct;
         else

@@ -6,14 +6,17 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   OPTIX_add_sample_executable(MaoPPM
     # header files
     core/global.h
+    core/montecarlo.h
+    core/particle.h
+    core/payload.h
+    core/reflection.h
+    core/utility.h
+    core/KdTree.h
     core/DifferentialGeometry.h
     core/Intersection.h
     core/Light.h
     core/Material.h
-    core/montecarlo.h
     core/ParameterVector.h
-    core/payload.h
-    core/reflection.h
     core/BSDF.h
     core/BxDF.h
     core/Fresnel.h
@@ -22,7 +25,6 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/SceneBuilder.h
     core/Scene.h
     core/System.h
-    core/utility.h
     materials/Glass.h
     materials/Matte.h
     materials/Mirror.h

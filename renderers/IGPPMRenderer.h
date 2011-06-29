@@ -28,7 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "KdTree.h"
+#include    "particle.h"
 #include    "Renderer.h"
 
 
@@ -58,33 +58,44 @@ class IGPPMRenderer : public Renderer {
             PhotonShootingPass, FinalGatheringPass
         };
 
-        typedef struct PixelSample {
-            unsigned int    isHit;
-            Intersection *  intersection;
-            optix::float3   wo;
-            optix::float3   direct;
+        class PixelSample {
+            public:
+                unsigned int    isHit;
+                Intersection *  intersection;
+                optix::float3   wo;
+                optix::float3   direct;
 
-            __device__ __inline__ void reset()
-            {
-                isHit   = false;
-                direct  = optix::make_float3(0.0f);
-            }
-        } PixelSample ;
+                __device__ __inline__ void reset()
+                {
+                    isHit   = false;
+                    direct  = optix::make_float3(0.0f);
+                }
+        };
 
-        typedef struct Importon {
-            unsigned int    isHit;
-            optix::float3   weight;
-            Intersection *  intersection;
-            optix::float3   wo;
-            optix::float3   flux;
-            unsigned int    nPhotons;
-            float           radiusSquared;
+        class Importon : public GatherPoint {
+            public:
+                unsigned int    isHit;
+                Intersection *  intersection;
+                optix::float3   weight;
+                optix::float3   wo;
 
-            __device__ __inline__ void reset()
-            {
-                isHit  = false;
-            }
-        } Importon ;
+                __device__ __inline__ void reset()
+                {
+                    isHit  = false;
+                }
+        };
+
+        class Photon : public MaoPPM::Photon {
+            public:
+                __device__ __inline__ unsigned int thetaBin() const
+                {
+                    return (flags >> 24) & 0xFF;
+                }
+                __device__ __inline__ unsigned int phiBin() const
+                {
+                    return (flags >> 16) & 0xFF;
+                }
+        };
 
     private:
         void createPhotonMap();

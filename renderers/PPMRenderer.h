@@ -28,7 +28,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "KdTree.h"
+#include    "particle.h"
 #include    "Renderer.h"
 
 
@@ -56,39 +56,19 @@ class PPMRenderer : public Renderer {
             PixelSamplingPass, PhotonShootingPass, DensityEstimationPass
         };
 
-        typedef struct PixelSample {
-            unsigned int    isHit;
-            Intersection *  intersection;
-            optix::float3   wo;
-            optix::float3   direct;
-            optix::float3   flux;
-            unsigned int    nPhotons;
-            float           radiusSquared;
+        class PixelSample : public GatherPoint {
+            public:
+                unsigned int    isHit;
+                Intersection *  intersection;
+                optix::float3   wo;
+                optix::float3   direct;
 
-            __device__ __inline__ void reset()
-            {
-                isHit   = false;
-                direct  = optix::make_float3(0.0f);
-            }
-        } PixelSample ;
-
-        typedef struct Photon {
-            optix::float3  position;  // photon position
-            optix::float3  wi;        // incident direction
-            optix::float3  flux;      // photon flux
-
-            enum Flag {
-                Direct    = KdTree<Photon>::User << 0,
-                Indirect  = KdTree<Photon>::User << 1
-            };
-            unsigned int   flags;     // for KdTree
-
-            __device__ __inline__ void reset()
-            {
-                flags  = 0;
-                flux   = optix::make_float3(0.0f);
-            }
-        } Photon ;
+                __device__ __inline__ void reset()
+                {
+                    isHit   = false;
+                    direct  = optix::make_float3(0.0f);
+                }
+        };
 
     private:
         void createPhotonMap();

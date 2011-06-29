@@ -204,18 +204,19 @@ void PPMRenderer::createPhotonMap()
     float3 bbMin = make_float3(+std::numeric_limits<float>::max());
     float3 bbMax = make_float3(-std::numeric_limits<float>::max());
     Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
-    for (uint i = 0; i < static_cast<uint>(photonListSize); i++)
-        if (fmaxf(photonListPtr[i].flux) > 0.0f) {
-            // Do not add direct photons.
-            if (photonListPtr[i].flags & Photon::Direct)
-                ++nDirectPhotons;
-            else {
-                validPhotonList[nValidPhotons] = photonListPtr[i];
-                bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
-                bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
-                ++nValidPhotons;
-            }
+    for (uint i = 0; i < static_cast<uint>(photonListSize); i++) {
+        // Do not add direct photons.
+        if (photonListPtr[i].flags & Photon::Direct) {
+            ++nDirectPhotons;
+            continue;
         }
+        if (fmaxf(photonListPtr[i].flux) > 0.0f) {
+            validPhotonList[nValidPhotons] = photonListPtr[i];
+            bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
+            bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
+            ++nValidPhotons;
+        }
+    }
     m_nEmittedPhotons += nDirectPhotons;
     debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
     debug("valid  photons: \033[01;31m%u\033[00m\n", nValidPhotons);

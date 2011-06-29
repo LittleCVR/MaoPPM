@@ -43,7 +43,7 @@ using namespace MaoPPM;
 
 typedef IGPPMRenderer::PixelSample  PixelSample;
 typedef IGPPMRenderer::Importon     Importon;
-typedef PPMRenderer::Photon         Photon;
+#define Photon IGPPMRenderer::Photon
 
 
 
@@ -148,7 +148,8 @@ RT_PROGRAM void generatePixelSamples()
 
         BSDF bsdf; intersection->getBSDF(&bsdf);
         float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = f * light->flux / (4.0f * M_PIf * distanceSquared);
+        Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
+            / (4.0f * M_PIf * distanceSquared);
     }
 
     pixelSample.direct = Li;
@@ -236,6 +237,7 @@ RT_PROGRAM void shootPhotons()
     float3 wo, wi, flux;
     Intersection * intersection  = NULL;
     BSDF bsdf;
+    unsigned int binFlags = 0;
     for (uint i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
@@ -245,7 +247,21 @@ RT_PROGRAM void shootPhotons()
             flux = light.flux;
             // sample direction
             float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
-            wo = sampleUniformSphere(sample);
+            // PDF
+            if (frameCount == 0)
+                wo = sampleUniformSphere(sample);
+            else {
+                wo = sampleUniformSphere(sample);
+            }
+            float theta = acosf(wo.z);
+            float phi   = acosf(wo.x);
+            if (wo.y < 0.0f) phi += M_PIf;
+            unsigned int thetaBin = fmaxf(N_THETA-1,
+                    floorf(theta / M_PIf * static_cast<float>(N_THETA)));
+            unsigned int phiBin = fmaxf(N_PHI-1,
+                    floorf(phi / (2.0f*M_PIf) * static_cast<float>(N_PHI)));
+            binFlags = (thetaBin << 24) | (phiBin << 16);
+            // Ray
             ray = Ray(light.position, wo, NormalRay, rayEpsilon);
         }
         // starts from surface
@@ -273,6 +289,8 @@ RT_PROGRAM void shootPhotons()
 
         // create photon
         Photon & photon = photonList[photonIndex+i];
+        photon.reset();
+        photon.flags |= binFlags;
         if (depth == 0)
             photon.flags |= Photon::Direct;
         else
