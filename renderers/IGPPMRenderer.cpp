@@ -192,16 +192,18 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
     Light * light = &lightList[0];
     float total = 0.0f, accumulated = 0.0f;
-    debug("light PDF:");
     for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
         total += light->pdf[i];
-        if (i % N_THETA == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%4.4f ", light->pdf[i]);
     }
+    debug("total: %f\n", total);
+    debug("light PDF:");
     for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        light->pdf[i] /= total;
         accumulated += light->pdf[i];
+        if (i % N_THETA == 0) fprintf(stderr, "\n");
+        fprintf(stderr, "%8.4f ", light->pdf[i]);
         if (total != 0.0f)
-            light->cdf[i] = 0.6f * light->cdf[i] + 0.3 * accumulated / total + 0.1f;
+            light->cdf[i] = 0.50f * light->cdf[i] + 0.49f * accumulated + 0.01f;
         light->pdf[i] = 0.0f;
     }
     fprintf(stderr, "\n");

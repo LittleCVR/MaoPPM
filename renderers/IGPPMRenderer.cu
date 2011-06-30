@@ -327,8 +327,15 @@ RT_PROGRAM void shootPhotons()
                 flux = light.flux * light.normalizedArea(thetaBin, phiBin) /
                     (index == 0 ? light.cdf[index] : (light.cdf[index]-light.cdf[index-1]));
                 if (launchIndex.x == 128 && launchIndex.y == 128) {
-                    rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, s.x: %f, s.y: %f, flux: %f %f %f\n",
-                            thetaBin, phiBin, zMin, zMax, pMin, pMax, s.x, s.y, flux.x, flux.y, flux.z);
+                    float theta = acosf(wo.z);
+                    float phi   = acosf(wo.x);
+                    if (wo.y < 0.0f) phi += M_PIf;
+                    theta = theta * 180.0f / M_PIf;
+                    phi   = phi   * 180.0f / M_PIf;
+                    rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, ",
+                            thetaBin, phiBin, zMin, zMax, pMin, pMax);
+                    rtPrintf("s.x: %f, s.y: %f, theta: %f, phi: %f, flux: %f %f %f\n",
+                            s.x, s.y, theta, phi, flux.x, flux.y, flux.z);
                 }
             }
             binFlags = (thetaBin << 24) | (phiBin << 16);
