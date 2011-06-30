@@ -58,6 +58,7 @@ rtBuffer<Photon,      1>  photonMap;
 rtBuffer<float,       1>  sampleList;
 
 rtDeclareVariable(uint, frameCount         , , );
+rtDeclareVariable(uint, guidedByImportons  , , );
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, nImportonsPerThread, , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
@@ -291,19 +292,45 @@ RT_PROGRAM void shootPhotons()
             /*TODO*/
             // sample light
             const Light & light = lightList[0];
-            flux = light.flux;
             // sample direction
-            float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
-            // CDF
-            /* TODO: do importance sampling */
-            wo = sampleUniformSphere(sample);
-            float theta = acosf(wo.z);
-            float phi   = acosf(wo.x);
-            if (wo.y < 0.0f) phi += M_PIf;
-            unsigned int thetaBin = fminf(N_THETA-1,
-                    floorf(theta / M_PIf * static_cast<float>(N_THETA)));
-            unsigned int phiBin = fminf(N_PHI-1,
-                    floorf(phi / (2.0f*M_PIf) * static_cast<float>(N_PHI)));
+            float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
+            unsigned int thetaBin, phiBin;
+            if (!guidedByImportons) {
+                float2 s = make_float2(sample);
+                wo = sampleUniformSphere(s);
+                float theta = acosf(wo.z);
+                float phi   = acosf(wo.x);
+                if (wo.y < 0.0f) phi += M_PIf;
+                thetaBin = fminf(N_THETA-1,
+                        floorf(theta / M_PIf * static_cast<float>(N_THETA)));
+                phiBin = fminf(N_PHI-1,
+                        floorf(phi / (2.0f*M_PIf) * static_cast<float>(N_PHI)));
+                flux = light.flux;
+            } else {
+                // CDF
+                uint index = 0;
+                for (uint j = 0; j < N_THETA*N_PHI; ++j)
+                    if (sample.z <= light.cdf[j]) {
+                        index = j;
+                        break;
+                    }
+                thetaBin = index / N_PHI;
+                phiBin   = index % N_PHI;
+                float zMax = static_cast<float>(thetaBin+0) / N_THETA;
+                float zMin = static_cast<float>(thetaBin+1) / N_THETA;
+                float pMax = static_cast<float>(phiBin+0) * (2.0f * M_PIf) / N_PHI;
+                float pMin = static_cast<float>(phiBin+1) * (2.0f * M_PIf) / N_PHI;
+                float2 s = make_float2(sample);
+                s.x = s.x * (zMax-zMin) + zMin;
+                s.y = (s.y * (pMax-pMin) + pMin) / (2.0f * M_PIf);
+                wo = sampleUniformSphere(s);
+                flux = light.flux * light.normalizedArea(thetaBin, phiBin) /
+                    (index == 0 ? light.cdf[index] : (light.cdf[index]-light.cdf[index-1]));
+                if (launchIndex.x == 128 && launchIndex.y == 128) {
+                    rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, s.x: %f, s.y: %f, flux: %f %f %f\n",
+                            thetaBin, phiBin, zMin, zMax, pMin, pMax, s.x, s.y, flux.x, flux.y, flux.z);
+                }
+            }
             binFlags = (thetaBin << 24) | (phiBin << 16);
             // Ray
             ray = Ray(light.position, wo, NormalRay, rayEpsilon);

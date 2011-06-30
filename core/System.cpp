@@ -53,7 +53,9 @@ SceneBuilder * g_sceneBuilder = NULL;
 
 
 System::System(int argc, char ** argv) :
-    m_useSRGB(true), m_timeout(DEFAULT_TIMEOUT), m_scene(NULL), m_renderer(NULL)
+    m_useSRGB(true), m_timeout(DEFAULT_TIMEOUT),
+    m_guidedByImportons(true),
+    m_scene(NULL), m_renderer(NULL)
 {
     GLUTDisplay::init(argc, argv);
 
@@ -137,6 +139,24 @@ void System::parseArguments(int argc, char ** argv)
                 exit(EXIT_FAILURE);
             }
         }
+        else if (arg == "--guided" || arg == "-G") {
+            if (++i < argc) {
+                if (strcmp(argv[i], "true") == 0) {
+                    m_guidedByImportons = true;
+                    cerr << "Set use guide." << endl;
+                } else if (strcmp(argv[i], "false") == 0) {
+                    m_guidedByImportons = false;
+                    cerr << "Don't use guide." << endl;
+                } else {
+                    cerr << arg << " option must followed by true or false." << endl;
+                    exit(EXIT_FAILURE);
+                }
+                reinterpret_cast<IGPPMRenderer *>(m_renderer)->setGuidedByImportons(m_guidedByImportons);
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
         else if (arg == "--renderer" || arg == "-r") {
             if (++i < argc) {
                 string rendererType(argv[i]);
@@ -175,6 +195,7 @@ void System::printUsageAndExit(const char * fileName, bool doExit)
         << "  -t | --timeout <sec>    Seconds before stopping rendering. Set to 0 for no stopping."                              << std::endl
         << "  -r | --renderer <type>  Specify renderer, available renderers are: PathTracing, PPM, IGPPM. IGPPM is the default." << std::endl
         << "  -S | --use-srgb <bool>  Set use SRGB color space or not."                                                          << std::endl
+        << "  -G | --guided <bool>    Set IGPPM to shoot photons guided by importons or not."                                    << std::endl
         << std::endl;
 
     GLUTDisplay::printUsage();

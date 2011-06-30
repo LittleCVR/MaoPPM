@@ -69,6 +69,7 @@ class System {
         float       m_timeout;  // The program will run for only timeout secs,
                                 // set it to 0 to indicate the program should run
                                 // forever.
+        bool        m_guidedByImportons;
         Scene *     m_scene;
         Renderer *  m_renderer;
 };  /* -----  end of class System  ----- */

@@ -40,6 +40,7 @@ using namespace MaoPPM;
 
 
 IGPPMRenderer::IGPPMRenderer(Scene * scene) : Renderer(scene),
+    m_guidedByImportons(true),
     m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
     m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
     m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
@@ -89,6 +90,7 @@ void IGPPMRenderer::init()
 
     // variables
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
+    context()["guidedByImportons"]->setUint(m_guidedByImportons);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
@@ -150,9 +152,11 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
         Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
         Light * light = &lightList[0];
+        float accumulated = 0.0f;
         for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-            light->pdf[i] = 1.0f;
-            light->cdf[i] = static_cast<float>(i + 1) / static_cast<float>(N_THETA + N_PHI);
+            light->pdf[i] = light->area(i/N_PHI, i%N_PHI);
+            accumulated += light->pdf[i];
+            light->cdf[i] = accumulated / (4.0f * M_PIf);
         }
         scene()->m_lightList->unmap();
     }
@@ -198,8 +202,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         accumulated += light->pdf[i];
         if (total != 0.0f)
             light->cdf[i] = 0.6f * light->cdf[i] + 0.3 * accumulated / total + 0.1f;
-        else
-            light->cdf[i] = 0.6f * light->cdf[i] + 0.4;
         light->pdf[i] = 0.0f;
     }
     fprintf(stderr, "\n");
@@ -293,6 +295,13 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
         m_finalGatheringPassLocalHeapOffset + m_finalGatheringPassLocalHeapSize;
     setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method IGPPMRenderer::resize  ----- */
+
+
+
+void IGPPMRenderer::setGuidedByImportons(bool guided)
+{
+    m_guidedByImportons = guided;
+}
 
 
 

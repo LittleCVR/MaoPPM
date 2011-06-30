@@ -114,7 +114,7 @@ __device__ __inline__ optix::float3 sampleUniformHemisphere(const optix::float2 
 {
     float z = sample.x;
     float r = sqrtf(optix::fmaxf(0.0f, 1.0f - z*z));
-    float phi = 2 * M_PIf * sample.y;
+    float phi = 2.0f * M_PIf * sample.y;
     float x = r * cosf(phi);
     float y = r * sinf(phi);
     return optix::make_float3(x, y, z);

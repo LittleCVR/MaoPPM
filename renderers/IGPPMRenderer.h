@@ -103,8 +103,8 @@ class IGPPMRenderer : public Renderer {
                 }
         };
 
-    private:
-        void createPhotonMap();
+    public:
+        void setGuidedByImportons(bool guided);
 
     public:
         void    init();
@@ -112,6 +112,10 @@ class IGPPMRenderer : public Renderer {
         void    render(const Scene::RayGenCameraData & cameraData);
 
     private:
+        void createPhotonMap();
+
+    private:
+        bool           m_guidedByImportons;
         unsigned int   m_nPhotonsUsed;
         unsigned int   m_nImportonsPerThread;
         unsigned int   m_nPhotonsWanted;
