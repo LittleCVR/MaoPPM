@@ -50,7 +50,6 @@ rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
 rtBuffer<float4,      2>  outputBuffer;
-rtBuffer<Light,       1>  lightList;
 rtBuffer<PixelSample, 2>  pixelSampleList;
 rtBuffer<Importon,    1>  importonList;
 rtBuffer<Photon,      1>  photonList;
@@ -64,9 +63,6 @@ rtDeclareVariable(uint, nImportonsPerThread, , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
 rtDeclareVariable(uint, nEmittedPhotons    , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
-
-rtDeclareVariable(rtObject, rootObject, , );
-rtDeclareVariable(float,    rayEpsilon, , );
 
 rtDeclareVariable(float3, cameraPosition, , );
 rtDeclareVariable(float3, cameraU       , , );
@@ -154,30 +150,9 @@ RT_PROGRAM void generatePixelSamples()
         }
     }
 
-    /* TODO: move this task to the light class */
     // Evaluate direct illumination.
-    float3 Li;
-    intersection = pixelSample.intersection();
-    {
-        const Light * light = &lightList[0];
-        float3 shadowRayDirection = light->position - intersection->dg()->point;
-        float3 wi = normalize(shadowRayDirection);
-        float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
-        float distance = sqrtf(distanceSquared);
-
-        ShadowRayPayload shadowRayPayload;
-        shadowRayPayload.reset();
-        ray = Ray(intersection->dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
-        rtTrace(rootObject, ray, shadowRayPayload);
-        if (shadowRayPayload.isHit) return;
-
-        intersection->getBSDF(&bsdf);
-        float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
-            / (4.0f * M_PIf * distanceSquared);
-    }
-
-    pixelSample.direct = Li * pixelSample.throughput;
+    pixelSample.direct = pixelSample.throughput *
+        estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -305,7 +280,7 @@ RT_PROGRAM void shootPhotons()
                         floorf(theta / M_PIf * static_cast<float>(N_THETA)));
                 phiBin = fminf(N_PHI-1,
                         floorf(phi / (2.0f*M_PIf) * static_cast<float>(N_PHI)));
-                flux = light.flux;
+                flux = light.flux * 4.0f * M_PIf;
             } else {
                 // CDF
                 uint index = 0;
@@ -324,7 +299,7 @@ RT_PROGRAM void shootPhotons()
                 s.x = s.x * (zMax-zMin) + zMin;
                 s.y = (s.y * (pMax-pMin) + pMin) / (2.0f * M_PIf);
                 wo = sampleUniformSphere(s);
-                flux = light.flux * light.normalizedArea(thetaBin, phiBin) /
+                flux = light.flux * 4.0f * M_PIf * light.normalizedArea(thetaBin, phiBin) /
                     (index == 0 ? light.cdf[index] : (light.cdf[index]-light.cdf[index-1]));
                 if (launchIndex.x == 128 && launchIndex.y == 128) {
                     float theta = acosf(wo.z);

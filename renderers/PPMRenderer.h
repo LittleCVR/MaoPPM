@@ -59,13 +59,16 @@ class PPMRenderer : public Renderer {
 
         class PixelSample : public GatherPoint {
             public:
-                optix::float3   wo;
-                optix::float3   direct;
+                optix::float3  throughput;
+                optix::float3  wo;
+                optix::float3  direct;
+                unsigned int   padding;
 
                 __device__ __inline__ void reset()
                 {
                     GatherPoint::reset();
-                    direct  = optix::make_float3(0.0f);
+                    throughput = optix::make_float3(1.0f);
+                    direct     = optix::make_float3(0.0f);
                 }
         };
 

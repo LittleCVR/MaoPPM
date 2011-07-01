@@ -103,7 +103,7 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     uint  nSamplesPerThread = 0;
     uint2 launchSize = make_uint2(0, 0);
 
-    if (scene()->isCameraChanged()) {
+//    if (scene()->isCameraChanged()) {
         m_frame = 0;
         context()["frameCount"]->setUint(m_frame);
 
@@ -124,7 +124,7 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
         context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
         context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
-    }
+//    }
 
     context()["frameCount"]->setUint(m_frame++);
 
@@ -142,26 +142,26 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //            averageRadiusSquared / static_cast<float>(nPixelSamples));
 //    m_pixelSampleList->unmap();
 
-    // photon
-    debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
-    setLocalHeapPointer(m_photonShootingPassLocalHeapOffset);
-    launchSize = make_uint2(
-            m_photonShootingPassLaunchWidth,
-            m_photonShootingPassLaunchHeight);
-    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    nSamplesPerThread = 4 * m_nPhotonsPerThread;
-    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-    context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
-    createPhotonMap();
-
-    // gathering
-    debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
-    setLocalHeapPointer(m_densityEstimationPassLocalHeapOffset);
-    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
-    launchSize = make_uint2(width(), height());
-    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-    context()->launch(DensityEstimationPass, launchSize.x, launchSize.y);
+//    // photon
+//    debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
+//    setLocalHeapPointer(m_photonShootingPassLocalHeapOffset);
+//    launchSize = make_uint2(
+//            m_photonShootingPassLaunchWidth,
+//            m_photonShootingPassLaunchHeight);
+//    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+//    nSamplesPerThread = 4 * m_nPhotonsPerThread;
+//    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+//    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+//    context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
+//    createPhotonMap();
+//
+//    // gathering
+//    debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
+//    setLocalHeapPointer(m_densityEstimationPassLocalHeapOffset);
+//    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+//    launchSize = make_uint2(width(), height());
+//    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+//    context()->launch(DensityEstimationPass, launchSize.x, launchSize.y);
 }   /* -----  end of method PPMRenderer::render  ----- */
 
 

@@ -1,5 +1,7 @@
 if(GLUT_FOUND AND OPENGL_FOUND)
-  include_directories(${GLUT_INCLUDE_DIR} . core materials parsers passes renderers shapes)
+  include_directories(${GLUT_INCLUDE_DIR}
+          . core materials parsers passes renderers shapes
+          /usr/include/OpenEXR)
   add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
 
   # See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
@@ -10,6 +12,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     core/particle.h
     core/payload.h
     core/reflection.h
+    core/transport.h
     core/utility.h
     core/KdTree.h
     core/DifferentialGeometry.h
@@ -57,6 +60,8 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     shapes/TriangleMesh.cu
     shapes/Sphere.cu
     )
+
+  target_link_libraries(MaoPPM IlmImf IlmThread Imath Iex Half)
 else()
   # GLUT or OpenGL not found
   message("Disabling progressive_photon, which requires glut and opengl.")

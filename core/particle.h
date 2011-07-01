@@ -47,7 +47,7 @@ class HitPoint {
         };
 
     public:
-        unsigned int    flags;
+        unsigned int  flags;
 
     public:
         __device__ __inline__ void reset()
@@ -93,9 +93,9 @@ class Photon {
 
 class GatherPoint : public HitPoint {
     public:
-        optix::float3  flux;
         unsigned int   nPhotons;
         float          radiusSquared;
+        optix::float3  flux;
 
 #ifdef __CUDACC__
     public:

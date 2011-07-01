@@ -69,14 +69,10 @@ rtDeclareVariable(Index, materialIndex, , );
 RT_PROGRAM void handleNormalRayClosestHit()
 {
     normalRayPayload.isHit = true;
-
-    Index index = LOCAL_HEAP_ALLOC(Intersection);
-    Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, index);
-    normalRayPayload.m_intersection = intersection;
-
     // Intersection
-    intersection->m_material = GET_MATERIAL(Glass, materialIndex);
+    Intersection * intersection = normalRayPayload.intersection();
     // Differential geometry.
-    DifferentialGeometry * dg = intersection->dg();
-    *dg = geometricDG;
+    *(intersection->dg()) = geometricDG;
+    // Material
+    intersection->m_material = LOCAL_HEAP_GET_OBJECT_POINTER(Material, materialIndex);
 }   /* -----  end of function handleNormalRayClosestHit  ----- */

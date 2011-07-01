@@ -24,11 +24,6 @@
 #include    <optix_world.h>
 
 /*----------------------------------------------------------------------------
- *  header files from std C/C++
- *----------------------------------------------------------------------------*/
-#include    <limits>
-
-/*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
@@ -54,7 +49,6 @@ rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
 rtBuffer<float4,      2>  outputBuffer;
-rtBuffer<Light,       1>  lightList;
 rtBuffer<PixelSample, 2>  pixelSampleList;
 rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
@@ -65,9 +59,6 @@ rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
 rtDeclareVariable(uint, nEmittedPhotons    , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
-
-rtDeclareVariable(rtObject, rootObject, , );
-rtDeclareVariable(float,    rayEpsilon, , );
 
 rtDeclareVariable(float3, cameraPosition, , );
 rtDeclareVariable(float3, cameraU       , , );
@@ -87,6 +78,9 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
+    /* TODO */
+    rtPrintf("generatePixelSamples()\n");
+
     if (frameCount != 0) return;
 
     // Clear output buffer.
@@ -107,46 +101,30 @@ RT_PROGRAM void generatePixelSamples()
         ray = Ray(cameraPosition, worldRayDirection, NormalRay, rayEpsilon);
     }
 
-    // Intersect with the scene.
-    NormalRayPayload payload;
-    payload.reset();
-    rtTrace(rootObject, ray, payload);
-    if (!payload.isHit) return;
-    pixelSample.flags |= PixelSample::isHit;
+    unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
 
-    // Fill pixel sample data if hit.
-    pixelSample.setIntersection(payload.intersection());
-    pixelSample.wo        = -ray.direction;
-    pixelSample.direct    = make_float3(0.0f);
-    pixelSample.flux      = make_float3(0.0f);
-    pixelSample.nPhotons  = 0;
-    /* TODO: hard coded */
-    pixelSample.radiusSquared  = 32.0f;
+    Intersection * intersection =
+        LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, sizeof(Intersection) * offset);
+    pixelSample.setIntersection(intersection);
 
-    /* TODO: move this task to the light class */
-    // Evaluate direct illumination.
-    float3 Li;
-    Intersection * intersection = pixelSample.intersection();
+    BSDF bsdf;
+    uint depth;
+    if (!traceUntilNonSpecularSurface(&ray, maxRayDepth, &depth,
+            intersection, &bsdf, &pixelSample.wo, &pixelSample.throughput))
     {
-        const Light * light = &lightList[0];
-        float3 shadowRayDirection = light->position - intersection->dg()->point;
-        float3 wi = normalize(shadowRayDirection);
-        float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
-        float distance = sqrtf(distanceSquared);
-
-        ShadowRayPayload shadowRayPayload;
-        shadowRayPayload.reset();
-        ray = Ray(intersection->dg()->point, wi, ShadowRay, rayEpsilon, distance-rayEpsilon);
-        rtTrace(rootObject, ray, shadowRayPayload);
-        if (shadowRayPayload.isHit) return;
-
-        BSDF bsdf; intersection->getBSDF(&bsdf);
-        float3 f = bsdf.f(pixelSample.wo, wi);
-        Li = f * light->flux  * fabsf(dot(wi, intersection->dg()->normal))
-            / (4.0f * M_PIf * distanceSquared);
+        return;
     }
-
-    pixelSample.direct = Li;
+//
+//    // Fill pixel sample data if hit.
+//    pixelSample.flux      = make_float3(0.0f);
+//    pixelSample.nPhotons  = 0;
+//    /* TODO: hard coded */
+//    pixelSample.radiusSquared  = 32.0f;
+//
+//    // Evaluate direct illumination.
+//    pixelSample.direct = estimateAllDirectLighting(
+//            intersection->dg()->point, bsdf, pixelSample.wo);
+//    outputBuffer[launchIndex] = make_float4(pixelSample.direct);
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -179,7 +157,7 @@ RT_PROGRAM void shootPhotons()
             /* TODO: sample random light */
             // sample light
             const Light & light = lightList[0];
-            flux = light.flux;
+            flux = light.flux * 4.0f * M_PIf;
             // sample direction
             float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
             wo = sampleUniformSphere(sample);

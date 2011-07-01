@@ -44,15 +44,11 @@ rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
 rtBuffer<float4,      2>  outputBuffer;
-rtBuffer<Light,       1>  lightList;
 rtBuffer<float,       1>  sampleList;
 
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
 rtDeclareVariable(uint, frameCount         , , );
-
-rtDeclareVariable(rtObject, rootObject, , );
-rtDeclareVariable(float,    rayEpsilon, , );
 
 rtDeclareVariable(float3, cameraPosition, , );
 rtDeclareVariable(float3, cameraU       , , );
@@ -114,26 +110,9 @@ RT_PROGRAM void trace()
         intersection = payload.intersection();
         intersection->getBSDF(&bsdf);
 
-        /* TODO: move this task to the light class */
         // Evaluate radiance.
-        float3 Li = make_float3(0.0f);
-        {
-            const Light & light = lightList[0];
-            float3 shadowRayDirection = light.position - intersection->dg()->point;
-            float3 normalizedShadowRayDirection = normalize(shadowRayDirection);
-            float distanceSquared = dot(shadowRayDirection, shadowRayDirection);
-            float distance = sqrtf(distanceSquared);
-
-            ShadowRayPayload shadowRayPayload;
-            shadowRayPayload.isHit = false;
-            ray = Ray(intersection->dg()->point, normalizedShadowRayDirection, ShadowRay, rayEpsilon, distance-rayEpsilon);
-            rtTrace(rootObject, ray, shadowRayPayload);
-            if (!shadowRayPayload.isHit)
-                Li = light.flux / (4.0f * M_PIf * distanceSquared);
-
-            float3 f = bsdf.f(wo, normalizedShadowRayDirection);
-            L += throughput * f * Li * fabsf(dot(normalizedShadowRayDirection, intersection->dg()->normal));
-        }
+        L += throughput * estimateAllDirectLighting(
+                intersection->dg()->point, bsdf, wo);
     }
 
     if (frameCount == 0)

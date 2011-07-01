@@ -23,10 +23,17 @@
  *-----------------------------------------------------------------------------*/
 #include    <cstring>
 
+#include    <ImfInputFile.h>
+#include    <ImfRgbaFile.h>
+#include    <ImfChannelList.h>
+#include    <ImfFrameBuffer.h>
+#include    <half.h>
+
 /*----------------------------------------------------------------------------
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "payload.h"
+#include    "particle.h"
 #include    "Light.h"
 #include    "Renderer.h"
 #include    "SceneBuilder.h"
@@ -36,6 +43,8 @@
  *----------------------------------------------------------------------------*/
 using namespace std;
 using namespace optix;
+using namespace Imf;
+using namespace Imath;
 using namespace MaoPPM;
 
 
@@ -151,6 +160,7 @@ void Scene::initDebug()
         debug("Compute capability is SM %d.%d, debug mode enabled.\n",
                 computeCapability.x, computeCapability.y);
         context()->setPrintEnabled(true);
+        context()->setPrintLaunchIndex(256, 256, 0);
     }
 
     // some useful messages
@@ -159,6 +169,8 @@ void Scene::initDebug()
     debug("sizeof(DifferentialGeometry) = \033[01;31m%4d\033[00m.\n", sizeof(DifferentialGeometry));
     debug("sizeof(Intersection)         = \033[01;31m%4d\033[00m.\n", sizeof(Intersection));
     debug("sizeof(BSDF)                 = \033[01;31m%4d\033[00m.\n", sizeof(BSDF));
+    debug("sizeof(HitPoint)             = \033[01;31m%4d\033[00m.\n", sizeof(HitPoint));
+    debug("sizeof(GatherPoint)          = \033[01;31m%4d\033[00m.\n", sizeof(GatherPoint));
 }   /* -----  end of method Scene::initDebug  ----- */
 #endif  /* -----  end of #ifndef NDEBUG  ----- */
 
@@ -214,4 +226,30 @@ void Scene::trace(const RayGenCameraData & cameraData)
     m_rayGenCameraData = cameraData;
     // Render.
     m_renderer->render(cameraData);
+
+//    unsigned int xRes = m_renderer->width();
+//    unsigned int yRes = m_renderer->height();
+//    float4 * pixels = static_cast<float4 *>(m_renderer->outputBuffer()->map());
+//
+//    Rgba *hrgba = new Rgba[xRes * yRes];
+//    for (int i = 0; i < xRes * yRes; ++i) {
+//        float4 * pixel = &pixels[xRes*yRes - i - 1];
+//        hrgba[i] = Rgba(pixel->x, pixel->y, pixel->z, pixel->w);
+//    }
+//
+//    Box2i displayWindow(V2i(0,0), V2i(xRes-1, yRes-1));
+//    Box2i dataWindow(V2i(0, 0), V2i(xRes-1, yRes-1));
+//
+//    try {
+//        RgbaOutputFile file("output.exr", displayWindow, dataWindow, WRITE_RGBA);
+//        file.setFrameBuffer(hrgba, 1, xRes);
+//        file.writePixels(yRes);
+//    }
+//    catch (const std::exception &e) {
+//        warning("Unable to write image file \"output.exr\": %s", e.what());
+//    }
+//
+//    delete[] hrgba;
+//
+//    m_renderer->outputBuffer()->unmap();
 }   /* -----  end of method Scene::trace  ----- */

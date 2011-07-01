@@ -57,6 +57,11 @@ class NormalRayPayload : public RayPayload {
         {
             return m_intersection;
         }
+
+        __device__ __inline__ void setIntersectionBuffer(Intersection * intersection)
+        {
+            m_intersection = intersection;
+        }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
     public:  // should be private

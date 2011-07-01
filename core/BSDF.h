@@ -59,8 +59,8 @@ class BSDF {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ BSDF() { /* EMPTY */ }
-        __device__ __inline__ BSDF(
+        __device__ BSDF() { /* EMPTY */ }
+        __device__ BSDF(
                 const DifferentialGeometry & dgShading,
                 const optix::float3 & geometricNormal, const float eta = 1.0f)
         {
@@ -84,10 +84,17 @@ class BSDF {
 
         __device__ __inline__ BxDF * bxdfAt(const Index & index)
         {
-            return reinterpret_cast<BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
+            /* TODO */
+            rtPrintf("bxdfAt(%u)\n", index);
+
+            const BSDF * bsdf = this;
+            return const_cast<BxDF *>(bsdf->bxdfAt(index));
         }
         __device__ __inline__ const BxDF * bxdfAt(const Index & index) const
         {
+            /* TODO */
+            rtPrintf("const bxdfAt(%u)\n", index);
+
             return reinterpret_cast<const BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
         }
         __device__ __inline__ BxDF * bxdfAt(const Index & index, BxDF::Type type)
@@ -109,7 +116,7 @@ class BSDF {
         }
 
     public:
-        __device__ __inline__ optix::float3 f(const optix::float3 & worldWo,
+        __device__ optix::float3 f(const optix::float3 & worldWo,
                 const optix::float3 & worldWi, BxDF::Type sampleType = BxDF::All) const
         {
             optix::float3 wo, wi;
@@ -127,7 +134,7 @@ class BSDF {
             return f;
         }
 
-        __device__ __inline__ optix::float3 sampleF(const optix::float3 & worldWo,
+        __device__ optix::float3 sampleF(const optix::float3 & worldWo,
                 optix::float3 * worldWi, const optix::float3 & sample, float * prob,
                 BxDF::Type sampleType = BxDF::All, BxDF::Type * sampledType = NULL) const
         {

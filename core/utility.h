@@ -1,7 +1,7 @@
 /*
  * =============================================================================
  *
- *       Filename:  math.cu
+ *       Filename:  utility.cu
  *
  *    Description:  
  *
@@ -32,8 +32,8 @@
 
 
 #ifdef __CUDACC__
-rtBuffer<char ,          1>  localHeap;
-rtBuffer<MaoPPM::Index,  1>  localHeapPointer;
+rtBuffer<char ,         1>  localHeap;
+rtBuffer<MaoPPM::Index, 1>  localHeapPointer;
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
 
@@ -42,34 +42,6 @@ namespace MaoPPM {
 
 #ifdef __CUDACC__
 
-#define LOCAL_HEAP_ALLOC(type) \
-    atomicAdd(&localHeapPointer[0], sizeof(type))
-
-#define LOCAL_HEAP_ALLOC_SIZE(size) \
-    atomicAdd(&localHeapPointer[0], size)
-
-#define LOCAL_HEAP_GET_OBJECT_POINTER(type, index) \
-    reinterpret_cast<type *>(&localHeap[index]);
-
-#define GET_MATERIAL(type, index) \
-    reinterpret_cast<type *>(&inputHeap[index])
-
-#define GET_1_SAMPLES(sampleList, sampleIndex) \
-    sampleList[sampleIndex]; \
-    sampleIndex += 1
-
-#define GET_2_SAMPLES(sampleList, sampleIndex) \
-    make_float2(sampleList[sampleIndex], sampleList[sampleIndex+1]); \
-    sampleIndex += 2
-
-#define GET_3_SAMPLES(sampleList, sampleIndex) \
-    make_float3(sampleList[sampleIndex], sampleList[sampleIndex+1], \
-            sampleList[sampleIndex+2]); \
-    sampleIndex += 3
-
-#define LAUNCH_OFFSET_2D(launchIndex, launchSize) \
-    (launchIndex.y * launchSize.x + launchIndex.x)
-
 template<typename T>
 __device__ __inline__ void swap(T & t1, T & t2)
 {
@@ -77,6 +49,36 @@ __device__ __inline__ void swap(T & t1, T & t2)
     t1 = t2;
     t2 = tmp;
 }
+
+#define LOCAL_HEAP_ALLOC_SIZE(size) \
+    atomicAdd(&localHeapPointer[0], size)
+
+#define LOCAL_HEAP_ALLOC_TYPE(type) \
+    LOCAL_HEAP_ALLOC_SIZE(sizeof(type))
+
+#define LOCAL_HEAP_GET_OBJECT_POINTER(type, index) \
+    reinterpret_cast<type *>(&localHeap[index]);
+
+#define LOCAL_HEAP_ALLOC_TYPE_AND_GET_OBJECT_POINTER(type) \
+    LOCAL_HEAP_GET_OBJECT_POINTER(type, LOCAL_HEAP_ALLOC_TYPE(type))
+
+#define GET_1_SAMPLE(sampleList, sampleIndex) \
+    sampleList[sampleIndex]; \
+    sampleIndex += 1
+
+#define GET_2_SAMPLES(sampleList, sampleIndex) \
+    make_float2(sampleList[sampleIndex], \
+            sampleList[sampleIndex+1]); \
+    sampleIndex += 2
+
+#define GET_3_SAMPLES(sampleList, sampleIndex) \
+    make_float3(sampleList[sampleIndex], \
+            sampleList[sampleIndex+1], \
+            sampleList[sampleIndex+2]); \
+    sampleIndex += 3
+
+#define LAUNCH_OFFSET_2D(launchIndex, launchSize) \
+    (launchIndex.y * launchSize.x + launchIndex.x)
 
 __device__ __inline__ bool isBlack(const optix::float3 & color)
 {
