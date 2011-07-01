@@ -80,7 +80,7 @@ __device__ __inline__ void sampleConcentricDisk(float u1, float u2, float *dx, f
             theta = 6.0f + sx/r;
         }
     }
-    theta *= M_PI / 4.f;
+    theta *= M_PIf / 4.f;
     *dx = r * cosf(theta);
     *dy = r * sinf(theta);
 }
@@ -96,7 +96,7 @@ __device__ __inline__ optix::float3 sampleCosineWeightedHemisphere(const optix::
 {
     optix::float3 ret;
     sampleConcentricDisk(sample.x, sample.y, &ret.x, &ret.y);
-    ret.z = sqrtf(fmaxf(0.f, 1.f - ret.x*ret.x - ret.y*ret.y));
+    ret.z = sqrtf(optix::fmaxf(0.f, 1.f - ret.x*ret.x - ret.y*ret.y));
     return ret;
 //    optix::float2 s = sample;
 //    s.x = asinf(s.x * 2.0f - 1.0f) / (M_PIf / 2.0f) / 2.0f + 0.5f;

@@ -146,16 +146,16 @@ class KdTree {
         {
             optix::float3 flux = optix::make_float3(0.0f);
 
-            uint stack[32];
-            uint stackPosition = 0;
-            uint stackNode     = 0;
+            unsigned int stack[32];
+            unsigned int stackPosition = 0;
+            unsigned int stackNode     = 0;
             stack[stackPosition++] = 0;
             do {
                 const T * node = &nodeList[stackNode];
                 if (node->flags == Null)
                     stackNode = stack[--stackPosition];
                 else {
-                    float3 diff = point - node->position;
+                    optix::float3 diff = point - node->position;
                     float distanceSquared = optix::dot(diff, diff);
                     if (distanceSquared < *maxDistanceSquared)
                         gatherer->gather(point, node, distanceSquared, maxDistanceSquared);

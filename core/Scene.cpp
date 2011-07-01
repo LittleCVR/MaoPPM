@@ -23,11 +23,13 @@
  *-----------------------------------------------------------------------------*/
 #include    <cstring>
 
-#include    <ImfInputFile.h>
-#include    <ImfRgbaFile.h>
-#include    <ImfChannelList.h>
-#include    <ImfFrameBuffer.h>
-#include    <half.h>
+//#include    <ImfInputFile.h>
+//#include    <ImfRgbaFile.h>
+//#include    <ImfChannelList.h>
+//#include    <ImfFrameBuffer.h>
+//#include    <half.h>
+//using namespace Imf;
+//using namespace Imath;
 
 /*----------------------------------------------------------------------------
  *  header files of our own
@@ -43,8 +45,6 @@
  *----------------------------------------------------------------------------*/
 using namespace std;
 using namespace optix;
-using namespace Imf;
-using namespace Imath;
 using namespace MaoPPM;
 
 

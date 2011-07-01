@@ -61,8 +61,8 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     shapes/Sphere.cu
     )
 
-  target_link_libraries(MaoPPM IlmImf IlmThread Imath Iex Half)
+#    target_link_libraries(MaoPPM IlmImf IlmThread Imath Iex Half)
 else()
-  # GLUT or OpenGL not found
-  message("Disabling progressive_photon, which requires glut and opengl.")
+    # GLUT or OpenGL not found
+    message("Disabling progressive_photon, which requires glut and opengl.")
 endif()

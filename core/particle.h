@@ -31,7 +31,7 @@
 
 
 #ifdef __CUDACC__
-rtDeclareVariable(uint, nPhotonsUsed, , );
+rtDeclareVariable(unsigned int, nPhotonsUsed, , );
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
 
