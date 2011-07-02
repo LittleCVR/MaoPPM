@@ -32,6 +32,7 @@
 
 
 #ifdef __CUDACC__
+rtBuffer<char,          1>  inputHeap;
 rtBuffer<char ,         1>  localHeap;
 rtBuffer<MaoPPM::Index, 1>  localHeapPointer;
 #endif  /* -----  #ifdef __CUDACC__  ----- */
@@ -49,6 +50,15 @@ __device__ __inline__ void swap(T & t1, T & t2)
     t1 = t2;
     t2 = tmp;
 }
+
+#define INPUT_HEAP_GET_OBJECT_POINTER(type, index) \
+    reinterpret_cast<type *>(&inputHeap[index])
+
+#define GET_MATERIAL_POINTER(index) \
+    INPUT_HEAP_GET_OBJECT_POINTER(Material, index)
+
+#define LOCAL_HEAP_GET_CURRENT_INDEX() \
+    localHeapPointer[0]
 
 #define LOCAL_HEAP_ALLOC_SIZE(size) \
     atomicAdd(&localHeapPointer[0], size)

@@ -45,7 +45,6 @@ rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
 rtBuffer<float,  1>  sampleList;
-rtBuffer<char,   1>  inputHeap;
 
 rtDeclareVariable(rtObject, rootObject, , );
 rtDeclareVariable(DifferentialGeometry, geometricDG, attribute differential_geometry, ); 
@@ -74,5 +73,5 @@ RT_PROGRAM void handleNormalRayClosestHit()
     // Differential geometry.
     *(intersection->dg()) = geometricDG;
     // Material
-    intersection->m_material = LOCAL_HEAP_GET_OBJECT_POINTER(Material, materialIndex);
+    intersection->setMaterialPointer(GET_MATERIAL_POINTER(materialIndex));
 }   /* -----  end of function handleNormalRayClosestHit  ----- */

@@ -133,6 +133,8 @@ Index Scene::copyToHeap(void * data, unsigned int size)
 
 void Scene::doResize(unsigned int width, unsigned int height)
 {
+    m_camera.width  = width;
+    m_camera.height = height;
     m_renderer->resize(width, height);
 }   /* -----  end of method Scene::doResize  ----- */
 
@@ -224,6 +226,11 @@ void Scene::trace(const RayGenCameraData & cameraData)
 {
     // Camera.
     m_rayGenCameraData = cameraData;
+    m_camera.position = cameraData.eye;
+    m_camera.U = cameraData.U;
+    m_camera.V = cameraData.V;
+    m_camera.W = cameraData.W;
+    context()["camera"]->setUserData(sizeof(Camera), &m_camera);
     // Render.
     m_renderer->render(cameraData);
 

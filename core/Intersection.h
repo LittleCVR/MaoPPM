@@ -41,45 +41,58 @@
 
 namespace MaoPPM {
 
-#define CALL_MATERIAL_VIRTUAL_FUNCTION(lvalue, op, material, function, ...) \
+#define CALL_MATERIAL_CONST_VIRTUAL_FUNCTION(lvalue, op, material, function, ...) \
     if (material->type() & Material::Matte) \
-        lvalue op reinterpret_cast<Matte *>(material)->function(__VA_ARGS__); \
+        lvalue op reinterpret_cast<const Matte *>(material)->function(__VA_ARGS__); \
     else if (material->type() & Material::Plastic) \
-        lvalue op reinterpret_cast<Plastic *>(material)->function(__VA_ARGS__); \
+        lvalue op reinterpret_cast<const Plastic *>(material)->function(__VA_ARGS__); \
     else if (material->type() & Material::Mirror) \
-        lvalue op reinterpret_cast<Mirror *>(material)->function(__VA_ARGS__); \
+        lvalue op reinterpret_cast<const Mirror *>(material)->function(__VA_ARGS__); \
     else if (material->type() & Material::Glass) \
-        lvalue op reinterpret_cast<Glass *>(material)->function(__VA_ARGS__);
+        lvalue op reinterpret_cast<const Glass *>(material)->function(__VA_ARGS__);
 
 class Intersection {
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ DifferentialGeometry * dg()
+        __device__ __forceinline__ DifferentialGeometry * dg()
         {
             return &m_dg;
         }
-        __device__ __inline__ const DifferentialGeometry * dg() const
+        __device__ __forceinline__ const DifferentialGeometry * dg() const
         {
             return &m_dg;
         }
 
-        __device__ __inline__ void getBSDF(BSDF * bsdf) const
+        __device__ __forceinline__ Material * materialPointer()
         {
-            CALL_MATERIAL_VIRTUAL_FUNCTION( , , m_material, getBSDF, m_dg, bsdf);
+            return m_materialPointer;
+        }
+        __device__ __forceinline__ const Material * materialPointer() const
+        {
+            return m_materialPointer;
+        }
+        __device__ __forceinline__ void setMaterialPointer(Material * materialPointer)
+        {
+            m_materialPointer = materialPointer;
         }
 
-        __device__ __inline__ optix::Matrix4x4 worldToObject() const
+        __device__ __forceinline__ void getBSDF(BSDF * bsdf) const
         {
-            optix::float3 n = m_dg.normal;
-            optix::float3 s = optix::normalize(m_dg.dpdu);
-            optix::float3 t = optix::cross(n, s);
-            return createCoordinateSystemTransform(s, t, n);
+            CALL_MATERIAL_CONST_VIRTUAL_FUNCTION( , , materialPointer(), getBSDF, m_dg, bsdf);
         }
+
+//        __device__ __forceinline__ optix::Matrix4x4 worldToObject() const
+//        {
+//            optix::float3 n = m_dg.normal;
+//            optix::float3 s = optix::normalize(m_dg.dpdu);
+//            optix::float3 t = optix::cross(n, s);
+//            return createCoordinateSystemTransform(s, t, n);
+//        }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
-//    private:
+    private:
         DifferentialGeometry  m_dg;
-        Material *            m_material;
+        Material *            m_materialPointer;
 };  /* -----  end of class Intersection  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

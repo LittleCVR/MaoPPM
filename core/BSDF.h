@@ -59,8 +59,8 @@ class BSDF {
 
 #ifdef __CUDACC__
     public:
-        __device__ BSDF() { /* EMPTY */ }
-        __device__ BSDF(
+        __device__ __forceinline__ BSDF() { /* EMPTY */ }
+        __device__ __forceinline__ BSDF(
                 const DifferentialGeometry & dgShading,
                 const optix::float3 & geometricNormal, const float eta = 1.0f)
         {
@@ -71,9 +71,9 @@ class BSDF {
             m_nBxDFs = 0;
         }
 
-        __device__ __inline__ unsigned int nBxDFs() const { return m_nBxDFs; }
+        __device__ __forceinline__ unsigned int nBxDFs() const { return m_nBxDFs; }
 
-        __device__ __inline__ unsigned int nBxDFs(BxDF::Type type) const
+        __device__ __forceinline__ unsigned int nBxDFs(BxDF::Type type) const
         {
             unsigned int count = 0;
             for (unsigned int i = 0; i < nBxDFs(); ++i)
@@ -84,17 +84,11 @@ class BSDF {
 
         __device__ __inline__ BxDF * bxdfAt(const Index & index)
         {
-            /* TODO */
-            rtPrintf("bxdfAt(%u)\n", index);
-
             const BSDF * bsdf = this;
             return const_cast<BxDF *>(bsdf->bxdfAt(index));
         }
         __device__ __inline__ const BxDF * bxdfAt(const Index & index) const
         {
-            /* TODO */
-            rtPrintf("const bxdfAt(%u)\n", index);
-
             return reinterpret_cast<const BxDF *>(&m_bxdfList[index * MAX_BXDF_SIZE]);
         }
         __device__ __inline__ BxDF * bxdfAt(const Index & index, BxDF::Type type)

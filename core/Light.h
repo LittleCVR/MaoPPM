@@ -60,7 +60,7 @@ class Light {
 
 #ifdef __CUDACC__
     public:
-        __device__ optix::float3 estimateDirectLighting(
+        __device__ __forceinline__ optix::float3 estimateDirectLighting(
                 const optix::float3 & point, const BSDF & bsdf,
                 const optix::float3 & wo) const;
 #endif  /* -----  #ifdef __CUDACC__  ----- */
@@ -98,7 +98,7 @@ namespace MaoPPM {
 
 #ifdef __CUDACC__
 
-__device__ optix::float3 estimateAllDirectLighting(
+__device__ __forceinline__ optix::float3 estimateAllDirectLighting(
         const optix::float3 & point, const BSDF & bsdf,
         const optix::float3 & wo)
 {
@@ -109,7 +109,7 @@ __device__ optix::float3 estimateAllDirectLighting(
     return L;
 }
 
-__device__ optix::float3 Light::estimateDirectLighting(
+__device__ __forceinline__ optix::float3 Light::estimateDirectLighting(
         const optix::float3 & point, const BSDF & bsdf,
         const optix::float3 & wo) const
 {

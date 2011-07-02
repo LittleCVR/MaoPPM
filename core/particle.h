@@ -73,7 +73,6 @@ class Photon {
             Direct    = KdTree::User << 0,
             Caustic   = KdTree::User << 1,
             Indirect  = KdTree::User << 2,
-            All       = Direct | Caustic | Indirect,
             User      = KdTree::User << 3,
         };
 
@@ -104,6 +103,8 @@ class GatherPoint : public HitPoint {
             HitPoint::reset();
             flux = optix::make_float3(0.0f);
             nPhotons = 0;
+            /* TODO */
+            radiusSquared = 32.0f;
         }
 
     public:

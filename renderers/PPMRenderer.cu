@@ -30,6 +30,7 @@
 #include    "payload.h"
 #include    "utility.h"
 #include    "BSDF.h"
+#include    "Camera.h"
 #include    "Light.h"
 
 /*----------------------------------------------------------------------------
@@ -60,10 +61,7 @@ rtDeclareVariable(uint, nPhotonsPerThread  , , );
 rtDeclareVariable(uint, nEmittedPhotons    , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
 
-rtDeclareVariable(float3, cameraPosition, , );
-rtDeclareVariable(float3, cameraU       , , );
-rtDeclareVariable(float3, cameraV       , , );
-rtDeclareVariable(float3, cameraW       , , );
+rtDeclareVariable(Camera, camera, , );
 
 rtDeclareVariable(NormalRayPayload, normalRayPayload, rtPayload, );
 rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
@@ -78,11 +76,6 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
-    /* TODO */
-    rtPrintf("generatePixelSamples()\n");
-
-    if (frameCount != 0) return;
-
     // Clear output buffer.
     if (frameCount == 0)
         outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -90,41 +83,26 @@ RT_PROGRAM void generatePixelSamples()
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.reset();
 
-    /* TODO: move this task to the camera class */
     // Generate camera ray.
-    Ray ray;
-    {
-        float2 screenSize = make_float2(outputBuffer.size());
-        float2 sample = make_float2(0.5f, 0.5f); 
-        float2 cameraRayDirection = (make_float2(launchIndex) + sample) / screenSize * 2.0f - 1.0f;
-        float3 worldRayDirection = normalize(cameraRayDirection.x*cameraU + cameraRayDirection.y*cameraV + cameraW);
-        ray = Ray(cameraPosition, worldRayDirection, NormalRay, rayEpsilon);
-    }
-
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
+    unsigned int sampleIndex = nSamplesPerThread * offset;
+    float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
+    Ray ray = camera.generateCameraRay(
+            launchIndex.x, launchIndex.y, sample, NormalRay, rayEpsilon);
 
-    Intersection * intersection =
-        LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, sizeof(Intersection) * offset);
-    pixelSample.setIntersection(intersection);
-
+    // Allocate memory for intersection.
+    Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection,
+            LOCAL_HEAP_GET_CURRENT_INDEX() + sizeof(Intersection) * offset);
+    // Trace until non-specular surface.
     BSDF bsdf;
-    uint depth;
+    uint depth = 0;
     if (!traceUntilNonSpecularSurface(&ray, maxRayDepth, &depth,
-            intersection, &bsdf, &pixelSample.wo, &pixelSample.throughput))
+                intersection, &bsdf, &pixelSample.wo, &pixelSample.throughput))
     {
         return;
     }
-//
-//    // Fill pixel sample data if hit.
-//    pixelSample.flux      = make_float3(0.0f);
-//    pixelSample.nPhotons  = 0;
-//    /* TODO: hard coded */
-//    pixelSample.radiusSquared  = 32.0f;
-//
-//    // Evaluate direct illumination.
-//    pixelSample.direct = estimateAllDirectLighting(
-//            intersection->dg()->point, bsdf, pixelSample.wo);
-//    outputBuffer[launchIndex] = make_float4(pixelSample.direct);
+    pixelSample.flags |= PixelSample::isHit;
+    pixelSample.setIntersection(intersection);
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -137,21 +115,24 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootPhotons()
 {
-    uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
-    uint sampleIndex = nSamplesPerThread * offset;
-    uint photonIndex = nPhotonsPerThread * offset;
+    unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
+    unsigned int sampleIndex = nSamplesPerThread * offset;
+    unsigned int photonIndex = nPhotonsPerThread * offset;
 
     // Clear photon list.
     for (uint i = 0; i < nPhotonsPerThread; i++)
         photonList[photonIndex+i].reset();
 
+    // Allocate memory for intersection.
+    Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection,
+            LOCAL_HEAP_GET_CURRENT_INDEX() + offset * sizeof(Intersection));
+
+    // Shoot photons.
     Ray ray;
-    NormalRayPayload payload;
-    uint depth = 0;
-    float3 wo, wi, flux;
-    Intersection * intersection  = NULL;
     BSDF bsdf;
-    for (uint i = 0; i < nPhotonsPerThread; i++) {
+    float3 wo, wi, flux;
+    unsigned int depth = 0;
+    for (unsigned int i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
             /* TODO: sample random light */
@@ -167,28 +148,21 @@ RT_PROGRAM void shootPhotons()
         else {
             float  probability;
             float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
-            // remember that we are now shooting rays from a light
-            // thus wo and wi must be swapped
-            float3 f = bsdf.sampleF(wi, &wo, sample, &probability);
-            if (probability == 0.0f) continue;
-            flux = f * flux * fabsf(dot(wo, intersection->dg()->normal)) / probability;
-            // transform from object to world
-            // remember that this transform's transpose is actually its inverse
-            ray = Ray(intersection->dg()->point, wo, NormalRay, rayEpsilon);
+            if (!bounce(&ray, *intersection->dg(), bsdf, sample, &probability, &flux))
+                continue;
         }
 
         // trace ray
-        payload.reset();
-        rtTrace(rootObject, ray, payload);
-        if (!payload.isHit) continue;
-        wi = -wo;
-        intersection  = payload.intersection();
-        intersection->getBSDF(&bsdf);
+        if (!traceUntilNonSpecularSurface(&ray, maxRayDepth, &depth,
+                    intersection, &bsdf, &wo, &flux))
+        {
+            continue;
+        }
+        wi = wo;
 
         // create photon
         Photon & photon = photonList[photonIndex+i];
-        photon.reset();
-        if (depth == 0)
+        if (depth == 1)
             photon.flags |= Photon::Direct;
         else
             photon.flags |= Photon::Indirect;
@@ -196,8 +170,15 @@ RT_PROGRAM void shootPhotons()
         photon.wi       = wi;
         photon.flux     = flux;
 
-        // Increase depth, reset if necessary.
-        ++depth;
+//        /* TODO */
+//        float3 pos = transformPoint(camera.worldToRaster(), photon.position);
+//        uint2  ras = make_uint2(pos.x, pos.y);
+//        if (ras.x < camera.width && ras.y < camera.height) {
+//            if (isVisible(camera.position, photon.position))
+//                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+//        }
+
+        // Reset depth if necessary.
         if (depth % maxRayDepth == 0)
             depth = 0;
     }
@@ -217,17 +198,22 @@ RT_PROGRAM void estimateDensity()
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     if (!(pixelSample.flags & PixelSample::isHit)) return;
 
-    // Gather.
+    // Evaluate direct illumination.
     Intersection * intersection = pixelSample.intersection();
     BSDF bsdf; intersection->getBSDF(&bsdf);
+    pixelSample.direct = pixelSample.throughput *
+        estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
+
+    // Gather.
     uint nAccumulatedPhotons = 0;
     float3 flux = make_float3(0.0f);
     float maxDistanceSquared = pixelSample.radiusSquared;
-    // First time should use LimitedPhotonGatherer to find initial radius.
+    // First time we should use LimitedPhotonGatherer to find initial radius.
     // Otherwise just gather all the photons in range.
     if (frameCount == 0) {
-        Index gatheredPhotonListIndex =
-            LOCAL_HEAP_ALLOC_SIZE(nPhotonsUsed * sizeof(GatheredPhoton));
+        unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
+        unsigned int gatheredPhotonListIndex = LOCAL_HEAP_GET_CURRENT_INDEX() +
+            offset * nPhotonsUsed * sizeof(GatheredPhoton);
         GatheredPhoton * gatheredPhotonList =
             LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
         flux = LimitedPhotonGatherer::accumulateFlux(
@@ -242,9 +228,10 @@ RT_PROGRAM void estimateDensity()
                 intersection->dg()->point, pixelSample.wo, &bsdf,
                 &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons);
     }
-
+    // Finally shrink the radius.
     pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
 
+    // Output.
     float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
     outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */
