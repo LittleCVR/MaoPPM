@@ -98,6 +98,14 @@ namespace MaoPPM {
 
 #ifdef __CUDACC__
 
+__device__ __forceinline__ Light * sampleOneLightUniformly(float sample)
+{
+    unsigned int size = lightList.size();
+    unsigned int index = min(size - 1,
+            static_cast<unsigned int>(floorf(sample * size)));
+    return &lightList[index];
+}
+
 __device__ __forceinline__ optix::float3 estimateAllDirectLighting(
         const optix::float3 & point, const BSDF & bsdf,
         const optix::float3 & wo)

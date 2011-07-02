@@ -135,14 +135,14 @@ RT_PROGRAM void shootPhotons()
     for (unsigned int i = 0; i < nPhotonsPerThread; i++) {
         // starts from lights
         if (depth == 0) {
-            /* TODO: sample random light */
             // sample light
-            const Light & light = lightList[0];
-            flux = light.flux * 4.0f * M_PIf;
+            float lightSample = GET_1_SAMPLE(sampleList, sampleIndex);
+            const Light * light = sampleOneLightUniformly(lightSample);
+            flux = light->flux * 4.0f * M_PIf;
             // sample direction
             float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
             wo = sampleUniformSphere(sample);
-            ray = Ray(light.position, wo, NormalRay, rayEpsilon);
+            ray = Ray(light->position, wo, NormalRay, rayEpsilon);
         }
         // starts from surface
         else {
