@@ -162,7 +162,7 @@ void Scene::initDebug()
         debug("Compute capability is SM %d.%d, debug mode enabled.\n",
                 computeCapability.x, computeCapability.y);
         context()->setPrintEnabled(true);
-        context()->setPrintLaunchIndex(256, 256, 0);
+        context()->setPrintLaunchIndex(128, 128, 0);
     }
 
     // some useful messages

@@ -62,32 +62,36 @@ class IGPPMRenderer : public Renderer {
         class PixelSample : public GatherPoint {
             public:
                 enum Flag {
-                    Finished  = GatherPoint::User << 0
+                    Regather  = GatherPoint::User << 0
                 };
 
             public:
-                unsigned int    nEmittedPhotonsOffset;
-                unsigned int    nSampled;
-                optix::float3   radiance;
                 optix::float3   wo;
                 optix::float3   throughput;
-                optix::float3   direct;
+                optix::float3   indirect;
+                unsigned int    nGathered;
+                unsigned int    nEmittedPhotonsOffset;
+                unsigned int    padding;
 
                 __device__ __inline__ void reset()
                 {
                     GatherPoint::reset();
-                    direct  = optix::make_float3(0.0f);
+                    throughput = optix::make_float3(1.0f);
+                    indirect   = optix::make_float3(0.0f);
+                    nGathered             = 0;
+                    nEmittedPhotonsOffset = 0;
                 }
         };
 
         class Importon : public GatherPoint {
             public:
-                optix::float3   weight;
                 optix::float3   wo;
+                optix::float3   throughput;
 
                 __device__ __inline__ void reset()
                 {
                     GatherPoint::reset();
+                    throughput = optix::make_float3(1.0f);
                 }
         };
 

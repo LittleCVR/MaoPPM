@@ -170,7 +170,7 @@ void SceneBuilder::lightSource(const char * type, ParameterVector * parameterVec
 
     Light light;
     if (strcmp(type, "point") == 0) {
-        light.flux = findOneColor("I", *parameterVector, make_float3(1.0f));
+        light.intensity = findOneColor("I", *parameterVector, make_float3(1.0f));
         light.position = transformPoint(m_currentState.transform, make_float3(0.0f));
     }
 

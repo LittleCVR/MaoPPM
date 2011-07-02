@@ -80,6 +80,12 @@ class Intersection {
         {
             CALL_MATERIAL_CONST_VIRTUAL_FUNCTION( , , materialPointer(), getBSDF, m_dg, bsdf);
         }
+        __device__ __forceinline__ BSDF getBSDF() const
+        {
+            BSDF bsdf;
+            getBSDF(&bsdf);
+            return bsdf;
+        }
 
 //        __device__ __forceinline__ optix::Matrix4x4 worldToObject() const
 //        {

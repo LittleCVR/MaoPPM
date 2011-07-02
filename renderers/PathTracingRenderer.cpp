@@ -62,7 +62,8 @@ void PathTracingRenderer::init()
 
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
 
-    setLocalHeapSize(DEFAULT_MAX_RAY_DEPTH * width() * height() * sizeof(Intersection));
+    // Do not need this.
+    setLocalHeapSize(0);
 
     context()->setEntryPointCount(N_PASSES);
     setExceptionProgram(PathTracingPass);
@@ -78,15 +79,10 @@ void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     if (scene()->isCameraChanged()) {
         scene()->setIsCameraChanged(false);
-        context()["cameraPosition"]->setFloat(cameraData.eye);
-        context()["cameraU"]->setFloat(cameraData.U);
-        context()["cameraV"]->setFloat(cameraData.V);
-        context()["cameraW"]->setFloat(cameraData.W);
         m_frame = 0;
     }
 
     // Launch path tracing pass.
-    setLocalHeapPointer(0);
     generateSamples(3 * width() * height() * DEFAULT_MAX_RAY_DEPTH);
     context()["nSamplesPerThread"]->setUint(3 * DEFAULT_MAX_RAY_DEPTH);
     context()["frameCount"]->setUint(m_frame);

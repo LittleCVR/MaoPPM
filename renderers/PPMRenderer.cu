@@ -138,10 +138,11 @@ RT_PROGRAM void shootPhotons()
             // sample light
             float lightSample = GET_1_SAMPLE(sampleList, sampleIndex);
             const Light * light = sampleOneLightUniformly(lightSample);
-            flux = light->flux * 4.0f * M_PIf;
             // sample direction
+            float  probability;
             float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
-            wo = sampleUniformSphere(sample);
+            float3 Le = light->sampleL(sample, &wo, &probability);
+            flux = Le / probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
         }
         // starts from surface
@@ -201,7 +202,7 @@ RT_PROGRAM void estimateDensity()
     // Evaluate direct illumination.
     Intersection * intersection = pixelSample.intersection();
     BSDF bsdf; intersection->getBSDF(&bsdf);
-    pixelSample.direct = pixelSample.throughput *
+    float3 direct = pixelSample.throughput *
         estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
 
     // Gather.
@@ -212,7 +213,7 @@ RT_PROGRAM void estimateDensity()
     // Otherwise just gather all the photons in range.
     if (frameCount == 0) {
         unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
-        unsigned int gatheredPhotonListIndex = LOCAL_HEAP_GET_CURRENT_INDEX() +
+        Index gatheredPhotonListIndex = LOCAL_HEAP_GET_CURRENT_INDEX() +
             offset * nPhotonsUsed * sizeof(GatheredPhoton);
         GatheredPhoton * gatheredPhotonList =
             LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
@@ -233,5 +234,5 @@ RT_PROGRAM void estimateDensity()
 
     // Output.
     float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
-    outputBuffer[launchIndex] = make_float4(pixelSample.direct + indirect, 1.0f);
+    outputBuffer[launchIndex] = make_float4(direct + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

@@ -119,10 +119,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         reset = true;
         m_frame = 0;
         m_nEmittedPhotons = 0;
-        context()["cameraPosition"]->setFloat(cameraData.eye);
-        context()["cameraU"]->setFloat(cameraData.U);
-        context()["cameraV"]->setFloat(cameraData.V);
-        context()["cameraW"]->setFloat(cameraData.W);
         scene()->setIsCameraChanged(false);
     }
 
@@ -133,7 +129,8 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     uint2 launchSize = make_uint2(0, 0);
 
     context()["frameCount"]->setUint(m_frame++);
-    // ImportonShootingPass needs this.
+    // ImportonShootingPass needs this,
+    // to record pixel sample's nEmittedPhotonsOffset.
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
 
     if (reset) {
@@ -190,32 +187,32 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //            averageRadiusSquared / static_cast<float>(nImportons));
 //    m_importonList->unmap();
 
-    Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
-    Light * light = &lightList[0];
-    float total = 0.0f, accumulated = 0.0f;
-    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-        total += light->pdf[i];
-    }
-    debug("total: %f\n", total);
-    debug("light PDF:");
-    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-        light->pdf[i] /= total;
-        accumulated += light->pdf[i];
-        if (i % N_THETA == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%8.4f ", light->pdf[i]);
-        if (total != 0.0f)
-            light->cdf[i] = 0.50f * light->cdf[i] + 0.49f * accumulated + 0.01f;
-        light->pdf[i] = 0.0f;
-    }
-    fprintf(stderr, "\n");
-    debug("light CDF:");
-    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-        light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
-        if (i % N_THETA == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%4.4f ", light->cdf[i]);
-    }
-    fprintf(stderr, "\n");
-    scene()->m_lightList->unmap();
+//    Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
+//    Light * light = &lightList[0];
+//    float total = 0.0f, accumulated = 0.0f;
+//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+//        total += light->pdf[i];
+//    }
+//    debug("total: %f\n", total);
+//    debug("light PDF:");
+//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+//        light->pdf[i] /= total;
+//        accumulated += light->pdf[i];
+//        if (i % N_THETA == 0) fprintf(stderr, "\n");
+//        fprintf(stderr, "%8.4f ", light->pdf[i]);
+//        if (total != 0.0f)
+//            light->cdf[i] = 0.50f * light->cdf[i] + 0.49f * accumulated + 0.01f;
+//        light->pdf[i] = 0.0f;
+//    }
+//    fprintf(stderr, "\n");
+//    debug("light CDF:");
+//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+//        light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
+//        if (i % N_THETA == 0) fprintf(stderr, "\n");
+//        fprintf(stderr, "%4.4f ", light->cdf[i]);
+//    }
+//    fprintf(stderr, "\n");
+//    scene()->m_lightList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
@@ -240,9 +237,11 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     debug("\033[01;36mFinished building photon map in %f secs.\033[00m\n",
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
+    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+
     // gathering
     debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
-    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    setLocalHeapPointer(m_finalGatheringPassLocalHeapOffset);
     launchSize = make_uint2(width(), height());
     context()["launchSize"]->setUint(launchSize.x, launchSize.y);
     startClock  = clock();
@@ -280,8 +279,7 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
     m_importonShootingPassLocalHeapOffset = m_pixelSamplingPassLocalHeapSize;
 
     m_photonShootingPassLocalHeapSize =
-        m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight *
-        m_nPhotonsPerThread * sizeof(Intersection);
+        m_photonShootingPassLaunchWidth * m_photonShootingPassLaunchHeight * sizeof(Intersection);
     debug("PhotonShootingPass   demands \033[01;33m%u\033[00m bytes of memory on localHeap.\n",
             m_photonShootingPassLocalHeapSize);
     m_photonShootingPassLocalHeapOffset =

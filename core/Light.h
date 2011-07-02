@@ -53,16 +53,29 @@ class Light {
         ~Light() { }
 
         optix::float3   position;
-        optix::float3   flux;
+        optix::float3   intensity;
 
         float           pdf [N_THETA * N_PHI];
         float           cdf [N_THETA * N_PHI];
 
 #ifdef __CUDACC__
     public:
+        __device__ __forceinline__ optix::float3 flux() const
+        {
+            return 4.0f * M_PIf * intensity;
+        }
+
         __device__ __forceinline__ optix::float3 estimateDirectLighting(
                 const optix::float3 & point, const BSDF & bsdf,
                 const optix::float3 & wo) const;
+
+        __device__ __forceinline__ optix::float3 sampleL(
+                const optix::float2 & sample,
+                optix::float3 * wo, float * probability) const;
+        __device__ __forceinline__ optix::float3 sampleL(
+                const optix::float3 & sample,
+                optix::float3 * wo, float * probability,
+                unsigned int * thetaBin, unsigned int * phiBin) const;
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
     public:
@@ -132,11 +145,61 @@ __device__ __forceinline__ optix::float3 Light::estimateDirectLighting(
     }
     else
     {
-        return bsdf.f(wo, normalizedShadowRayDirection) * flux *
+        return bsdf.f(wo, normalizedShadowRayDirection) * intensity *
             fabsf(optix::dot(bsdf.m_nn, normalizedShadowRayDirection)) /
             distanceSquared;
     }
 
+}
+
+__device__ __forceinline__ optix::float3 Light::sampleL(
+        const optix::float2 & sample,
+        optix::float3 * wo, float * probability) const
+{
+    *probability = 1.0f / (4.0f * M_PIf);
+    *wo = sampleUniformSphere(sample);
+    return intensity;
+}
+__device__ __forceinline__ optix::float3 Light::sampleL(
+        const optix::float3 & sample,
+        optix::float3 * wo, float * probability,
+        unsigned int * thetaBin, unsigned int * phiBin) const
+{
+    // Sample a bin.
+    unsigned int index = 0;
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i)
+        if (sample.z <= cdf[i]) {
+            index = i;
+            break;
+        }
+    *thetaBin = index / N_PHI;
+    *phiBin   = index % N_PHI;
+
+    *probability = pdf[index] / normalizedArea(*thetaBin, *phiBin);
+
+    // Sample a direction in the bin.
+    float zMax = static_cast<float>(*thetaBin+0) / N_THETA;
+    float zMin = static_cast<float>(*thetaBin+1) / N_THETA;
+    float pMax = static_cast<float>(*phiBin+0) * (2.0f * M_PIf) / N_PHI;
+    float pMin = static_cast<float>(*phiBin+1) * (2.0f * M_PIf) / N_PHI;
+    optix::float2 s = optix::make_float2(sample);
+    s.x = s.x * (zMax-zMin) + zMin;
+    s.y = (s.y * (pMax-pMin) + pMin) / (2.0f * M_PIf);
+    *wo = sampleUniformSphere(s);
+
+    return intensity;
+
+//    if (launchIndex.x == 128 && launchIndex.y == 128) {
+//        float theta = acosf(wo.z);
+//        float phi   = acosf(wo.x);
+//        if (wo.y < 0.0f) phi += M_PIf;
+//        theta = theta * 180.0f / M_PIf;
+//        phi   = phi   * 180.0f / M_PIf;
+//        rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, ",
+//                thetaBin, phiBin, zMin, zMax, pMin, pMax);
+//        rtPrintf("s.x: %f, s.y: %f, theta: %f, phi: %f, flux: %f %f %f\n",
+//                s.x, s.y, theta, phi, flux.x, flux.y, flux.z);
+//    }
 }
 
 #endif  /* -----  #ifdef __CUDACC__  ----- */

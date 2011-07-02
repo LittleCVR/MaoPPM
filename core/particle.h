@@ -50,15 +50,15 @@ class HitPoint {
         unsigned int  flags;
 
     public:
-        __device__ __inline__ void reset()
+        __device__ __forceinline__ void reset()
         {
             flags = Null;
         }
-        __device__ __inline__ Intersection * intersection()
+        __device__ __forceinline__ Intersection * intersection()
         {
             return m_intersection;
         }
-        __device__ __inline__ void setIntersection(Intersection * intersection)
+        __device__ __forceinline__ void setIntersection(Intersection * intersection)
         {
             m_intersection = intersection;
         }
@@ -73,6 +73,7 @@ class Photon {
             Direct    = KdTree::User << 0,
             Caustic   = KdTree::User << 1,
             Indirect  = KdTree::User << 2,
+            All       = Direct | Caustic | Indirect,
             User      = KdTree::User << 3,
         };
 
@@ -83,7 +84,7 @@ class Photon {
         optix::float3  flux;      // photon flux
 
     public:
-        __device__ __inline__ void reset()
+        __device__ __forceinline__ void reset()
         {
             flags  = 0;
             flux   = optix::make_float3(0.0f);
@@ -98,7 +99,7 @@ class GatherPoint : public HitPoint {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ void reset()
+        __device__ __forceinline__ void reset()
         {
             HitPoint::reset();
             flux = optix::make_float3(0.0f);
@@ -108,7 +109,7 @@ class GatherPoint : public HitPoint {
         }
 
     public:
-        __device__ __inline__ void shrinkRadius(
+        __device__ __forceinline__ void shrinkRadius(
                 const optix::float3 & f, unsigned int newPhotons,
                 float * reductionFactorSquared = NULL)
         {
@@ -142,11 +143,11 @@ class GatheredPhoton {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ GatheredPhoton(float d, const Photon * p) :
+        __device__ __forceinline__ GatheredPhoton(float d, const Photon * p) :
             distanceSquared(d), photon(p) { /* EMPTY */ }
 
     public:
-        __device__ __inline__ bool operator<(const GatheredPhoton & p)
+        __device__ __forceinline__ bool operator<(const GatheredPhoton & p)
         {
             return distanceSquared < p.distanceSquared;
         }
@@ -166,7 +167,7 @@ class PhotonGatherer {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ PhotonGatherer(
+        __device__ __forceinline__ PhotonGatherer(
                 const optix::float3 * w, const BSDF * b, Photon::Flag cond, Light * l = NULL, float ww = 0.0f) :
             nFound(0), wo(w), bsdf(b), condition(cond), light(l), weight(ww)
         {
@@ -174,7 +175,7 @@ class PhotonGatherer {
         }
 
     public:
-        __device__ __inline__ static optix::float3 accumulateFlux(
+        __device__ __forceinline__ static optix::float3 accumulateFlux(
                 const optix::float3 & point, const optix::float3 & wo, const BSDF * bsdf,
                 const Photon * photonMap, float * maxDistanceSquared, unsigned int * nAccumulatedPhotons,
                 Photon::Flag cond = Photon::Flag(~0), Light * l = NULL, float ww = 0.0f)
@@ -186,7 +187,7 @@ class PhotonGatherer {
         }
 
     public:
-        __device__ __inline__ void gather(const optix::float3 & point,
+        __device__ __forceinline__ void gather(const optix::float3 & point,
                 const Photon * photon, float distanceSquared, float * maxDistanceSquared)
         {
             if (!(photon->flags & condition))
@@ -210,12 +211,12 @@ class LimitedPhotonGatherer {
 
 #ifdef __CUDACC__
     public:
-        __device__ __inline__ LimitedPhotonGatherer(
+        __device__ __forceinline__ LimitedPhotonGatherer(
                 GatheredPhoton * list, Photon::Flag cond) :
             nFound(0), condition(cond), gatheredPhotonList(list) { /* EMPTY */ }
 
     public:
-        __device__ __inline__ static optix::float3 accumulateFlux(
+        __device__ __forceinline__ static optix::float3 accumulateFlux(
                 const optix::float3 & point, const optix::float3 & wo, const BSDF * bsdf,
                 const Photon * photonMap, float * maxDistanceSquared, unsigned int * nAccumulatedPhotons,
                 GatheredPhoton * gatheredPhotonList, Photon::Flag cond = Photon::Flag(~0))
@@ -236,7 +237,7 @@ class LimitedPhotonGatherer {
         }
 
     public:
-        __device__ __inline__ void gather(const optix::float3 & point,
+        __device__ __forceinline__ void gather(const optix::float3 & point,
                 const Photon * photon, float distanceSquared, float * maxDistanceSquared)
         {
             if (!(photon->flags & condition))

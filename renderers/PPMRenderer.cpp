@@ -105,9 +105,8 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 
     if (scene()->isCameraChanged()) {
         m_frame = 0;
-        context()["frameCount"]->setUint(m_frame);
-
         m_nEmittedPhotons = 0;
+        context()["frameCount"]->setUint(m_frame);
 
         scene()->setIsCameraChanged(false);
 
