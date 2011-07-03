@@ -91,6 +91,19 @@ class Photon {
         }
 };
 
+class RadiancePhoton {
+    public:
+        optix::float3  position;
+        optix::float3  normal;
+        optix::float3  radiance;
+
+    public:
+        __device__ __forceinline__ void reset()
+        {
+            radiance = optix::make_float3(0.0f);
+        }
+};
+
 class GatherPoint : public HitPoint {
     public:
         unsigned int   nPhotons;

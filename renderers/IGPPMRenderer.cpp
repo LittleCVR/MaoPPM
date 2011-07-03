@@ -87,7 +87,15 @@ void IGPPMRenderer::init()
     context()["photonList"]->set(m_photonMap);
     context()["photonMap"]->set(m_photonMap);
     debug("\033[01;33mphotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
-            sizeof(Photon) * m_nPhotonsWanted);
+            sizeof(RadiancePhoton) * m_nPhotonsWanted / 8);
+
+    m_radiancePhotonMap = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
+    m_radiancePhotonMap->setElementSize(sizeof(RadiancePhoton));
+    m_radiancePhotonMap->setSize(m_nRadiancePhotonsWanted);
+    context()["radiancePhotonList"]->set(m_radiancePhotonMap);
+    context()["radiancePhotonMap"]->set(m_radiancePhotonMap);
+    debug("\033[01;33mradiancePhotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
+            sizeof(RadiancePhoton) * m_nRadiancePhotonsWanted);
 
     // variables
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
@@ -308,12 +316,13 @@ void IGPPMRenderer::setGuidedByImportons(bool guided)
 
 void IGPPMRenderer::createPhotonMap()
 {
-    RTsize photonListSize = 0;
-    m_photonMap->getSize(photonListSize);
-    Photon * validPhotonList = new Photon [photonListSize];
+    Photon * validPhotonList = new Photon [m_nPhotonsWanted];
+    RadiancePhoton * radiancePhotonList = new RadiancePhoton [m_nRadiancePhotonsWanted];
 
     // count valid photons & build bounding box
-    uint nValidPhotons = 0, nDirectPhotons = 0;
+    unsigned int nValidPhotons    = 0;
+    unsigned int nDirectPhotons   = 0;
+    unsigned int nRadiancePhotons = 0
     float3 bbMin = make_float3(+std::numeric_limits<float>::max());
     float3 bbMax = make_float3(-std::numeric_limits<float>::max());
     Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
@@ -336,5 +345,6 @@ void IGPPMRenderer::createPhotonMap()
     KdTree::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
+    delete [] radiancePhotonMap;
     delete [] validPhotonList;
 }   /* -----  end of method IGPPMRenderer::createPhotonMap  ----- */
