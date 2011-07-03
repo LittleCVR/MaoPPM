@@ -57,8 +57,10 @@ rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
 rtBuffer<float,       1>  sampleList;
 
+rtDeclareVariable(uint,  guidedByImportons  , , );
+rtDeclareVariable(float, radiusSquared  , , );
+
 rtDeclareVariable(uint, frameCount         , , );
-rtDeclareVariable(uint, guidedByImportons  , , );
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, nImportonsPerThread, , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
@@ -107,6 +109,7 @@ RT_PROGRAM void generatePixelSamples()
     }
     pixelSample.flags |= PixelSample::isHit;
     pixelSample.setIntersection(intersection);
+    pixelSample.radiusSquared = radiusSquared;
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -162,6 +165,7 @@ RT_PROGRAM void shootImportons()
 
         importon.flags |= Importon::isHit;
         importon.setIntersection(intersection);
+        importon.radiusSquared = radiusSquared;
 
 //        /* TODO */
 //        float3 position = intersection->dg()->point;
@@ -337,56 +341,51 @@ RT_PROGRAM void gatherPhotons()
     float3 direct = pixelSample.throughput *
         estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
 
-    GatheredPhoton * gatheredPhotonList = NULL;
-    if (frameCount == 0) {
-        Index gatheredPhotonListIndex = LOCAL_HEAP_GET_CURRENT_INDEX() +
-            offset * nPhotonsUsed * sizeof(GatheredPhoton);
-        gatheredPhotonList =
-            LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
-    }
+    Index gatheredPhotonListIndex = LOCAL_HEAP_GET_CURRENT_INDEX() +
+        offset * nPhotonsUsed * sizeof(GatheredPhoton);
+    GatheredPhoton * gatheredPhotonList =
+        LOCAL_HEAP_GET_OBJECT_POINTER(GatheredPhoton, gatheredPhotonListIndex);
 
     // Gather pixel sample first.
     uint nAccumulatedPhotons = 0;
     float3 flux = make_float3(0.0f);
     float maxDistanceSquared = pixelSample.radiusSquared;
-//    // First time we should use LimitedPhotonGatherer to find initial radius.
-//    // Otherwise just gather all the photons in range.
-//    if (frameCount == 0) {
-//        flux = LimitedPhotonGatherer::accumulateFlux(
-//                intersection->dg()->point, pixelSample.wo, &bsdf,
-//                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-//                gatheredPhotonList, Photon::Flag(Photon::Caustic));
-//        // maxDistanceSquared may be shrinked. So write it back to pixelSample.
-//        pixelSample.radiusSquared = maxDistanceSquared;
-//    }
-//    else {  // frameCount != 0
-//        flux = PhotonGatherer::accumulateFlux(
-//                intersection->dg()->point, pixelSample.wo, &bsdf,
-//                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-//                Photon::Flag(Photon::Caustic));
-//    }
-//    pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
-//
-//    // Caustic.
-//    float3 caustic = pixelSample.throughput *
-//        pixelSample.flux / (M_PIf * pixelSample.radiusSquared) /
-//        nEmittedPhotons;
+    // First time we should use LimitedPhotonGatherer to find initial radius.
+    // Otherwise just gather all the photons in range.
+    if (frameCount == 0) {
+        flux = LimitedPhotonGatherer::accumulateFlux(
+                intersection->dg()->point, pixelSample.wo, &bsdf,
+                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                gatheredPhotonList, Photon::Flag(Photon::Caustic));
+        // maxDistanceSquared may be shrinked. So write it back to pixelSample.
+        pixelSample.radiusSquared = maxDistanceSquared;
+    }
+    else {  // frameCount != 0
+        flux = PhotonGatherer::accumulateFlux(
+                intersection->dg()->point, pixelSample.wo, &bsdf,
+                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                Photon::Flag(Photon::Caustic));
+    }
+    pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
+
+    // Caustic.
+    float3 caustic = pixelSample.throughput *
+        pixelSample.flux / (M_PIf * pixelSample.radiusSquared) /
+        nEmittedPhotons;
 
     // Compute indirect illumination.
-    float greatestReductionFactor2 = 0.0f;
+    float smallestReductionFactor2 = 0.0f;
     for (uint i = 0; i < nImportonsPerThread; ++i) {
         Importon & importon = importonList[importonIndex+i];
         if (importon.flags & Importon::isHit) {
             intersection = importon.intersection();
             intersection->getBSDF(&bsdf);
             maxDistanceSquared = importon.radiusSquared;
-            // First time we should use LimitedPhotonGatherer to find initial radius.
-            // Otherwise just gather all the photons in range.
-            if (frameCount == 0) {
+            if (importon.nPhotons == 0) {
                 flux = LimitedPhotonGatherer::accumulateFlux(
                         intersection->dg()->point, importon.wo, &bsdf,
                         &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-                        gatheredPhotonList, Photon::Flag(Photon::All));
+                        gatheredPhotonList, Photon::Flag(Photon::Direct | Photon::Indirect));
                 // KdTree::find() may shrink the radius. So write it back to pixelSample.
                 importon.radiusSquared = maxDistanceSquared;
             }
@@ -394,14 +393,14 @@ RT_PROGRAM void gatherPhotons()
                 flux = PhotonGatherer::accumulateFlux(
                         intersection->dg()->point, importon.wo, &bsdf,
                         &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-                        Photon::Flag(Photon::All),
+                        Photon::Flag(Photon::Direct | Photon::Indirect),
                         &lightList[0], dot(importon.throughput, importon.throughput));
             }
 
             float reductionFactor2;
             importon.shrinkRadius(flux, nAccumulatedPhotons, &reductionFactor2);
-            if (greatestReductionFactor2 < reductionFactor2)
-                greatestReductionFactor2 = reductionFactor2;
+            if (smallestReductionFactor2 < reductionFactor2)
+                smallestReductionFactor2 = reductionFactor2;
         }
     }
 
@@ -422,7 +421,7 @@ RT_PROGRAM void gatherPhotons()
     }
 
     /* TODO: test */
-    if (nValidImportons == 0 || greatestReductionFactor2 > 0.95f)
+    if (nValidImportons == 0 || smallestReductionFactor2 > 0.95f)
         pixelSample.flags |= PixelSample::Regather;
 
     // Average.
@@ -433,5 +432,5 @@ RT_PROGRAM void gatherPhotons()
         pixelSample.indirect = indirect;
         ++pixelSample.nGathered;
     }
-    outputBuffer[launchIndex] = make_float4(direct + indirect, 1.0f);
+    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

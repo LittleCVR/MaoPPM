@@ -121,7 +121,7 @@ class BxDF {
         __device__ __forceinline__ optix::float3 rho(unsigned int nSamples, \
                 const float * samples1, const float * samples2) const \
         { \
-            optix::float3 r = 0.0f; \
+            optix::float3 r = optix::make_float3(0.0f); \
             for (unsigned int i = 0; i < nSamples; ++i) { \
                 optix::float3 wo, wi; \
                 wo = sampleUniformSphere(optix::make_float2(samples1[2*i], samples1[2*i+1])); \
@@ -129,7 +129,7 @@ class BxDF {
                 optix::float3 f = sampleF(wo, &wi, \
                     optix::make_float2(samples2[2*i], samples2[2*i+1]), &pdf_i); \
                 if (pdf_i > 0.0f) \
-                    r += f * fabsf(cosTheta(wi)) * fabsf(cosTheta(wo)( / (pdf_o * pdf_i); \
+                    r += f * fabsf(cosTheta(wi)) * fabsf(cosTheta(wo)) / (pdf_o * pdf_i); \
             } \
             return r / (M_PIf*nSamples); \
         }

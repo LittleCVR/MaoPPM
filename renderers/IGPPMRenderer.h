@@ -43,7 +43,7 @@ namespace MaoPPM {
 class IGPPMRenderer : public Renderer {
     public:
         static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD     = 1;
-        static const unsigned int  DEFAULT_N_PHOTONS_USED             = 32;
+        static const unsigned int  DEFAULT_N_PHOTONS_USED             = 64;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED           = 256*256*4;
         static const unsigned int  DEFAULT_N_RADIANCE_PHOTONS_WANTED  = 256*256*4/8;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
@@ -109,22 +109,25 @@ class IGPPMRenderer : public Renderer {
         };
 
     public:
-        void setGuidedByImportons(bool guided);
-
-    public:
         void    init();
         void    resize(unsigned int width, unsigned int height);
         void    render(const Scene::RayGenCameraData & cameraData);
 
+    public:
+        void    parseArguments(std::vector<char *> argumentList);
+        void    printUsageAndExit(bool doExit = true);
+
     private:
-        void createPhotonMap();
+        void    createPhotonMap();
 
     private:
         bool           m_guidedByImportons;
+        float          m_radius;
         unsigned int   m_nPhotonsUsed;
-        unsigned int   m_nImportonsPerThread;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nRadiancePhotonsWanted;
+
+        unsigned int   m_nImportonsPerThread;
         unsigned int   m_nPhotonsPerThread;
         unsigned int   m_photonShootingPassLaunchWidth;
         unsigned int   m_photonShootingPassLaunchHeight;

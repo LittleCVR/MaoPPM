@@ -30,6 +30,11 @@
 #include    "global.h"
 #include    "Scene.h"
 
+/*-----------------------------------------------------------------------------
+ *  header files from std C/C++
+ *-----------------------------------------------------------------------------*/
+#include    <vector>
+
 
 
 namespace MaoPPM {
@@ -54,6 +59,10 @@ class Renderer {
         virtual void          init();
         virtual void          render(const Scene::RayGenCameraData & cameraData) = 0;
         virtual void          resize(unsigned int width, unsigned int height);
+
+    public:
+        virtual void  parseArguments(std::vector<char *> argumentList) { /* EMPTY */ }
+        virtual void  printUsageAndExit(bool doExit = true) { /* EMPTY */ }
 
     protected:  // methods
         /*

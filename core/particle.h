@@ -38,6 +38,8 @@ rtDeclareVariable(unsigned int, nPhotonsUsed, , );
 
 namespace MaoPPM {
 
+static const float  DEFAULT_RADIUS  = 16.0f;
+
 class HitPoint {
     public:
         enum Flag {
@@ -117,8 +119,6 @@ class GatherPoint : public HitPoint {
             HitPoint::reset();
             flux = optix::make_float3(0.0f);
             nPhotons = 0;
-            /* TODO */
-            radiusSquared = 32.0f;
         }
 
     public:

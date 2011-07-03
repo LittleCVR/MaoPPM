@@ -24,6 +24,11 @@
  *----------------------------------------------------------------------------*/
 #include    "global.h"
 
+/*-----------------------------------------------------------------------------
+ *  header files from std C/C++
+ *-----------------------------------------------------------------------------*/
+#include    <vector>
+
 
 
 namespace MaoPPM {
@@ -72,6 +77,7 @@ class System {
         bool        m_guidedByImportons;
         Scene *     m_scene;
         Renderer *  m_renderer;
+        std::vector<char *>  m_rendererArgumentList;
 };  /* -----  end of class System  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 

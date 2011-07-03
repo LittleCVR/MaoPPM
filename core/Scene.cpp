@@ -23,13 +23,13 @@
  *-----------------------------------------------------------------------------*/
 #include    <cstring>
 
-//#include    <ImfInputFile.h>
-//#include    <ImfRgbaFile.h>
-//#include    <ImfChannelList.h>
-//#include    <ImfFrameBuffer.h>
-//#include    <half.h>
-//using namespace Imf;
-//using namespace Imath;
+#include    <ImfInputFile.h>
+#include    <ImfRgbaFile.h>
+#include    <ImfChannelList.h>
+#include    <ImfFrameBuffer.h>
+#include    <half.h>
+using namespace Imf;
+using namespace Imath;
 
 /*----------------------------------------------------------------------------
  *  header files of our own
@@ -234,29 +234,29 @@ void Scene::trace(const RayGenCameraData & cameraData)
     // Render.
     m_renderer->render(cameraData);
 
-//    unsigned int xRes = m_renderer->width();
-//    unsigned int yRes = m_renderer->height();
-//    float4 * pixels = static_cast<float4 *>(m_renderer->outputBuffer()->map());
-//
-//    Rgba *hrgba = new Rgba[xRes * yRes];
-//    for (int i = 0; i < xRes * yRes; ++i) {
-//        float4 * pixel = &pixels[xRes*yRes - i - 1];
-//        hrgba[i] = Rgba(pixel->x, pixel->y, pixel->z, pixel->w);
-//    }
-//
-//    Box2i displayWindow(V2i(0,0), V2i(xRes-1, yRes-1));
-//    Box2i dataWindow(V2i(0, 0), V2i(xRes-1, yRes-1));
-//
-//    try {
-//        RgbaOutputFile file("output.exr", displayWindow, dataWindow, WRITE_RGBA);
-//        file.setFrameBuffer(hrgba, 1, xRes);
-//        file.writePixels(yRes);
-//    }
-//    catch (const std::exception &e) {
-//        warning("Unable to write image file \"output.exr\": %s", e.what());
-//    }
-//
-//    delete[] hrgba;
-//
-//    m_renderer->outputBuffer()->unmap();
+    unsigned int xRes = m_renderer->width();
+    unsigned int yRes = m_renderer->height();
+    float4 * pixels = static_cast<float4 *>(m_renderer->outputBuffer()->map());
+
+    Rgba *hrgba = new Rgba[xRes * yRes];
+    for (int i = 0; i < xRes * yRes; ++i) {
+        float4 * pixel = &pixels[xRes*yRes - i - 1];
+        hrgba[i] = Rgba(pixel->x, pixel->y, pixel->z, pixel->w);
+    }
+
+    Box2i displayWindow(V2i(0,0), V2i(xRes-1, yRes-1));
+    Box2i dataWindow(V2i(0, 0), V2i(xRes-1, yRes-1));
+
+    try {
+        RgbaOutputFile file("output.exr", displayWindow, dataWindow, WRITE_RGBA);
+        file.setFrameBuffer(hrgba, 1, xRes);
+        file.writePixels(yRes);
+    }
+    catch (const std::exception &e) {
+        warning("Unable to write image file \"output.exr\": %s", e.what());
+    }
+
+    delete[] hrgba;
+
+    m_renderer->outputBuffer()->unmap();
 }   /* -----  end of method Scene::trace  ----- */

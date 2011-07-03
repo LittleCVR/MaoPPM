@@ -22,6 +22,7 @@
  *  header files from std C/C++
  *----------------------------------------------------------------------------*/
 #include    <cstdio>
+#include    <cstring>
 #include    <ctime>
 #include    <limits>
 
@@ -41,6 +42,7 @@ using namespace MaoPPM;
 
 
 IGPPMRenderer::IGPPMRenderer(Scene * scene) : Renderer(scene),
+    m_radius(DEFAULT_RADIUS),
     m_guidedByImportons(true),
     m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
     m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
@@ -98,8 +100,9 @@ void IGPPMRenderer::init()
             sizeof(RadiancePhoton) * m_nRadiancePhotonsWanted);
 
     // variables
-    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["guidedByImportons"]->setUint(m_guidedByImportons);
+    context()["radiusSquared"]->setFloat(m_radius * m_radius);
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
@@ -307,26 +310,74 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
 
 
 
-void IGPPMRenderer::setGuidedByImportons(bool guided)
+void IGPPMRenderer::parseArguments(vector<char *> argumentList)
 {
-    m_guidedByImportons = guided;
-}
+    int argc = argumentList.size();
+    for (vector<char *>::iterator it = argumentList.begin();
+         it != argumentList.end(); ++it)
+    {
+        std::string arg(*it);
+        if (arg == "--guided" || arg == "-G") {
+            if (++it != argumentList.end()) {
+                if (strcmp(*it, "true") == 0) {
+                    m_guidedByImportons = true;
+                    cerr << "Set use guide." << endl;
+                } else if (strcmp(*it, "false") == 0) {
+                    m_guidedByImportons = false;
+                    cerr << "Don't use guide." << endl;
+                } else {
+                    cerr << arg << " option must followed by true or false." << endl;
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if (arg == "--radius") {
+            if (++it != argumentList.end()) {
+                m_radius = atof(*it);
+                cerr << "Set radius to " << m_radius << endl;
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+        // otherwise
+        else {
+            std::cerr << "Unknown option: '" << arg << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}   /* -----  end of function IGPPMRenderer::parseArguments  ----- */
+
+
+
+void IGPPMRenderer::printUsageAndExit(bool doExit)
+{
+    std::cerr
+        << "IGPPM options:" << std::endl
+        << "  -G | --guided <bool>    Set IGPPM to shoot photons guided by importons or not." << std::endl
+        << "     | --raduis <float>   Set IGPPM's maximum gathering distance."                << std::endl
+        << std::endl;
+
+    if (doExit)
+        exit(EXIT_FAILURE);
+}   /* -----  end of function IGPPMRenderer::printUsageAndExit  ----- */
 
 
 
 void IGPPMRenderer::createPhotonMap()
 {
     Photon * validPhotonList = new Photon [m_nPhotonsWanted];
-    RadiancePhoton * radiancePhotonList = new RadiancePhoton [m_nRadiancePhotonsWanted];
 
     // count valid photons & build bounding box
     unsigned int nValidPhotons    = 0;
     unsigned int nDirectPhotons   = 0;
-    unsigned int nRadiancePhotons = 0
     float3 bbMin = make_float3(+std::numeric_limits<float>::max());
     float3 bbMax = make_float3(-std::numeric_limits<float>::max());
     Photon * photonListPtr = static_cast<Photon *>(m_photonMap->map());
-    for (uint i = 0; i < static_cast<uint>(photonListSize); i++)
+    for (unsigned int i = 0; i < m_nPhotonsWanted; i++)
         if (fmaxf(photonListPtr[i].flux) > 0.0f) {
             validPhotonList[nValidPhotons] = photonListPtr[i];
             bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
@@ -345,6 +396,5 @@ void IGPPMRenderer::createPhotonMap()
     KdTree::build(validPhotonList, 0, nValidPhotons, photonMapPtr, 0, bbMin, bbMax);
     m_photonMap->unmap();
 
-    delete [] radiancePhotonMap;
     delete [] validPhotonList;
 }   /* -----  end of method IGPPMRenderer::createPhotonMap  ----- */
