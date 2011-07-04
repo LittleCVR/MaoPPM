@@ -30,6 +30,7 @@
 #include    "payload.h"
 #include    "utility.h"
 #include    "BSDF.h"
+#include    "Camera.h"
 #include    "Light.h"
 
 /*----------------------------------------------------------------------------

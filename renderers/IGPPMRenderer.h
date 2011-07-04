@@ -54,10 +54,12 @@ class IGPPMRenderer : public Renderer {
         ~IGPPMRenderer();
 
     public:
-        static const unsigned int  N_PASSES  = 4;
+        static const unsigned int  N_PASSES  = Renderer::N_PASSES + 4;
         enum Pass {
-            PixelSamplingPass, ImportonShootingPass,
-            PhotonShootingPass, FinalGatheringPass
+            PixelSamplingPass    = Renderer::User + 0,
+            ImportonShootingPass = Renderer::User + 1,
+            PhotonShootingPass   = Renderer::User + 2,
+            FinalGatheringPass   = Renderer::User + 3
         };
 
         class PixelSample : public GatherPoint {

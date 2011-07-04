@@ -44,6 +44,7 @@ typedef unsigned int Index;
  *----------------------------------------------------------------------------*/
 class BxDF;
 class BSDF;
+class Camera;
 class DifferentialGeometry;
 class Intersection;
 class Renderer;

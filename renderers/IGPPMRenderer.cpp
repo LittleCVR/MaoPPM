@@ -66,7 +66,7 @@ IGPPMRenderer::~IGPPMRenderer()
 
 void IGPPMRenderer::init()
 {
-    Renderer::init();
+    Renderer::preInit();
 
     debug("sizeof(PixelSample) = \033[01;31m%4d\033[00m.\n", sizeof(PixelSample));
     debug("sizeof(Importon)    = \033[01;31m%4d\033[00m.\n", sizeof(Importon));
@@ -102,11 +102,16 @@ void IGPPMRenderer::init()
     // variables
     context()["guidedByImportons"]->setUint(m_guidedByImportons);
     context()["radiusSquared"]->setFloat(m_radius * m_radius);
+
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
+
+    context()["frameCount"]->setUint(0);
+    context()["launchSize"]->setUint(0, 0);
     context()["nEmittedPhotons"]->setUint(0);
+    context()["nSamplesPerThread"]->setUint(0);
 
     // programs
     context()->setEntryPointCount(N_PASSES);
@@ -119,12 +124,16 @@ void IGPPMRenderer::init()
     setRayGenerationProgram(PhotonShootingPass,   "IGPPMRenderer.cu", "shootPhotons");
     setRayGenerationProgram(FinalGatheringPass,   "IGPPMRenderer.cu", "gatherPhotons");
     setMissProgram(NormalRay, "ray.cu", "handleNormalRayMiss");
+
+    Renderer::postInit();
 }   /* -----  end of method IGPPMRenderer::init  ----- */
 
 
 
 void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
+    Renderer::preRender();
+
     bool reset = false;
     if (scene()->isCameraChanged()) {
         reset = true;
@@ -259,6 +268,8 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     endClock    = clock();
     debug("\033[01;36mFinished launching final gathering pass in %f secs.\033[00m\n",
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
+
+    Renderer::postRender();
 }   /* -----  end of method IGPPMRenderer::render  ----- */
 
 

@@ -50,6 +50,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     # CUDA source files
     core/exception.cu
     core/ray.cu
+    core/Renderer.cu
     materials/Glass.cu
     materials/Matte.cu
     materials/Mirror.cu

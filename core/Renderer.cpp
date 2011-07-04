@@ -22,6 +22,7 @@
  *  header files from std
  *----------------------------------------------------------------------------*/
 #include    <cstdlib>
+#include    <ctime>
 #include    <iostream>
 
 /*----------------------------------------------------------------------------
@@ -39,7 +40,8 @@ using namespace MaoPPM;
 
 
 Renderer::Renderer(Scene * scene) :
-    m_scene(NULL), m_width(DEFAULT_WIDTH), m_height(DEFAULT_HEIGHT)
+    m_scene(NULL), m_width(DEFAULT_WIDTH), m_height(DEFAULT_HEIGHT),
+    m_currentOutputBuffer(0)
 {
     setScene(scene);
 }   /* -----  end of method Renderer::Renderer  ----- */
@@ -53,11 +55,12 @@ Renderer::~Renderer()
 
 
 
-void Renderer::init()
+void Renderer::preInit()
 {
     // create output buffer
-    m_outputBuffer = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, width(), height());
-    context()["outputBuffer"]->set(m_outputBuffer);
+    for (unsigned int i = 0; i < 2; ++i)
+        m_outputBuffer[i] = scene()->createOutputBuffer(RT_FORMAT_FLOAT4, width(), height());
+    context()["outputBuffer"]->set(m_outputBuffer[1]);
 
     // initialize sample buffer
     m_sampleList = context()->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT);
@@ -72,7 +75,35 @@ void Renderer::init()
             RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER, 1);
     m_localHeapPointer->setElementSize(sizeof(Index));
     context()["localHeapPointer"]->set(m_localHeapPointer);
-}   /* -----  end of method PPMRenderer::initPPMRenderer  ----- */
+}   /* -----  end of method Renderer::preInit  ----- */
+
+
+
+void Renderer::postInit()
+{
+    setExceptionProgram(ClearOutputBuffer);
+    setRayGenerationProgram(ClearOutputBuffer, "Renderer.cu", "clearOutputBuffer");
+}   /* -----  end of method Renderer::postInit  ----- */
+
+
+
+void Renderer::preRender()
+{
+    clock_t startClock, endClock;
+    debug("\033[01;36mPrepare to launch clear output buffer pass\033[00m\n");
+    startClock  = clock();
+    context()->launch(ClearOutputBuffer, width(), height());
+    endClock    = clock();
+    debug("\033[01;36mFinished launching clear output buffer pass in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
+}   /* -----  end of method Renderer::preRender  ----- */
+
+
+
+void Renderer::postRender()
+{
+    swapOutputBuffer();
+}   /* -----  end of method Renderer::postRender  ----- */
 
 
 
@@ -112,8 +143,17 @@ void Renderer::resize(unsigned int width, unsigned int height)
     m_width = width; m_height = height;
     debug("\033[01;33moutputBuffer\033[00m resized to: \033[01;31m%u\033[00m.\n",
             sizeof(float4) * width * height);
-    m_outputBuffer->setSize(width, height);
+    for (unsigned int i = 0; i < 2; ++i)
+        m_outputBuffer[i]->setSize(width, height);
 }   /* -----  end of method Renderer::resize  ----- */
+
+
+
+void Renderer::swapOutputBuffer()
+{
+    context()["outputBuffer"]->set(m_outputBuffer[m_currentOutputBuffer]);
+    m_currentOutputBuffer = (m_currentOutputBuffer + 1) % 2;
+}   /* -----  end of method Renderer::preRender  ----- */
 
 
 

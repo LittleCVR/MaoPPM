@@ -82,9 +82,6 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
-    // Clear output buffer.
-    if (frameCount == 0)
-        outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
     // Clear pixel sample.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.reset();
@@ -130,9 +127,6 @@ RT_PROGRAM void shootImportons()
         return;
     pixelSample.flags &= ~PixelSample::Regather;
     pixelSample.nEmittedPhotonsOffset = nEmittedPhotons;
-
-//    /* TODO */
-//    outputBuffer[launchIndex] = make_float4(0.0f);
 
     // Prepare offset variables.
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
@@ -193,11 +187,6 @@ RT_PROGRAM void shootImportons()
  */
 RT_PROGRAM void shootPhotons()
 {
-    /* TODO: */
-    for (unsigned int y = launchIndex.y; y < camera.height; y += launchSize.y)
-        for (unsigned int x = launchIndex.x; x < camera.width; x += launchSize.x)
-            outputBuffer[make_uint2(x, y)] = make_float4(0.0f);
-
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     unsigned int sampleIndex = nSamplesPerThread * offset;
     unsigned int photonIndex = nPhotonsPerThread * offset;
@@ -226,7 +215,6 @@ RT_PROGRAM void shootPhotons()
             float  probability;
             float3 Le;
             if (!guidedByImportons) {
-                rtPrintf("not guided by importons\n");
                 float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
                 Le = light->sampleL(sample, &wo, &probability);
             } else {
@@ -275,10 +263,9 @@ RT_PROGRAM void shootPhotons()
             float3 position = intersection->dg()->point;
             float3 pos = transformPoint(camera.worldToRaster(), position);
             uint2  ras = make_uint2(pos.x, pos.y);
-            rtPrintf("raster: %u %u\n", ras.x, ras.y);
             if (ras.x < camera.width && ras.y < camera.height) {
                 if (isVisible(camera.position, position))
-                    outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+                    outputBuffer[ras] = make_float4(0.5f, 0.0f, 0.0f, 0.0f);
             }
         }
 

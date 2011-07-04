@@ -33,7 +33,6 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "global.h"
-#include    "Camera.h"
 
 
 
@@ -90,7 +89,7 @@ class Scene : public SampleScene {
         Renderer *         m_renderer;
         InitialCameraData  m_initialCameraData;
         RayGenCameraData   m_rayGenCameraData;
-        Camera             m_camera;
+        Camera *           m_camera;
         optix::Group       m_rootObject;
         optix::Buffer      m_lightList;
         optix::Buffer      m_inputHeap;
