@@ -45,8 +45,8 @@ class PathTracingRenderer : public Renderer {
         ~PathTracingRenderer();
 
     public:
-        static const unsigned int  N_PASSES  = 1;
-        enum Pass { PathTracingPass };
+        static const unsigned int  N_PASSES  = Renderer::N_PASSES + 1;
+        enum Pass { PathTracingPass = Renderer::UserPass };
 
     public:     // methods
         void    init();

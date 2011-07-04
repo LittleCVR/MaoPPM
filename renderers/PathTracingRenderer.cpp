@@ -58,7 +58,7 @@ PathTracingRenderer::~PathTracingRenderer()
 
 void PathTracingRenderer::init()
 {
-    Renderer::init();
+    Renderer::preInit();
 
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
 
@@ -69,6 +69,8 @@ void PathTracingRenderer::init()
     setExceptionProgram(PathTracingPass);
     setRayGenerationProgram(PathTracingPass, "PathTracingRenderer.cu", "trace");
     setMissProgram(NormalRay, "ray.cu", "handleNormalRayMiss");
+
+    Renderer::postInit();
 }   /* -----  end of method PathTracingRenderer::init  ----- */
 
 

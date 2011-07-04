@@ -59,13 +59,14 @@ rtBuffer<float,       1>  sampleList;
 
 rtDeclareVariable(uint,  guidedByImportons  , , );
 rtDeclareVariable(float, radiusSquared  , , );
+rtDeclareVariable(uint,  maxRayDepth        , , );
+rtDeclareVariable(uint,  nImportonsPerThread, , );
 
-rtDeclareVariable(uint, frameCount         , , );
-rtDeclareVariable(uint, nSamplesPerThread  , , );
-rtDeclareVariable(uint, nImportonsPerThread, , );
-rtDeclareVariable(uint, nPhotonsPerThread  , , );
-rtDeclareVariable(uint, nEmittedPhotons    , , );
-rtDeclareVariable(uint, maxRayDepth        , , );
+rtDeclareVariable(uint,  frameCount           , , );
+rtDeclareVariable(uint,  nSamplesPerThread    , , );
+rtDeclareVariable(uint,  nPhotonsPerThread    , , );
+rtDeclareVariable(uint,  nEmittedPhotons      , , );
+rtDeclareVariable(float, totalDirectPhotonFlux, , );
 
 rtDeclareVariable(Camera, camera, , );
 
@@ -126,7 +127,8 @@ RT_PROGRAM void shootImportons()
     if (frameCount != 0 && !(pixelSample.flags & PixelSample::Regather))
         return;
     pixelSample.flags &= ~PixelSample::Regather;
-    pixelSample.nEmittedPhotonsOffset = nEmittedPhotons;
+    /* TODO: hard coding */
+    pixelSample.totalDirectPhotonFluxOffset = totalDirectPhotonFlux;
 
     // Prepare offset variables.
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
@@ -164,14 +166,14 @@ RT_PROGRAM void shootImportons()
         importon.setIntersection(intersection);
         importon.radiusSquared = radiusSquared;
 
-//        /* TODO */
-//        float3 position = intersection->dg()->point;
-//        float3 pos = transformPoint(camera.worldToRaster(), position);
-//        uint2  ras = make_uint2(pos.x, pos.y);
-//        if (ras.x < camera.width && ras.y < camera.height) {
-//            if (isVisible(camera.position, position))
-//                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
-//        }
+        /* TODO */
+        float3 position = intersection->dg()->point;
+        float3 pos = transformPoint(camera.worldToRaster(), position);
+        uint2  ras = make_uint2(pos.x, pos.y);
+        if (ras.x < camera.width && ras.y < camera.height) {
+            if (isVisible(camera.position, position))
+                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+        }
 
         ++intersection;
     }
@@ -223,6 +225,7 @@ RT_PROGRAM void shootPhotons()
                 Le = light->sampleL(sample, &wo, &probability,
                         &thetaBin, &phiBin);
                 binFlags = (thetaBin << 24) | (phiBin << 16);
+                rtPrintf("wo: %f %f %f, binFlags: %u\n", wo.x, wo.y, wo.z, binFlags);
             }
             flux = Le / probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
@@ -330,10 +333,11 @@ RT_PROGRAM void gatherPhotons()
     }
     pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
 
+    /* TODO: hard coding */
     // Caustic.
     float3 caustic = pixelSample.throughput *
-        pixelSample.flux / (M_PIf * pixelSample.radiusSquared) /
-        nEmittedPhotons;
+        pixelSample.flux / (M_PIf * pixelSample.radiusSquared) *
+        (RGBtoGray(lightList[0].intensity) / totalDirectPhotonFlux);
 
     // Compute indirect illumination.
     float smallestReductionFactor2 = 0.0f;
@@ -362,7 +366,7 @@ RT_PROGRAM void gatherPhotons()
                             intersection->dg()->point, importon.wo, &bsdf,
                             &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
                             Photon::Flag(Photon::Direct | Photon::Indirect),
-                            &lightList[0], dot(importon.throughput, importon.throughput));
+                            &lightList[0], importon.radiusSquared * dot(importon.throughput, importon.throughput));
             }
 
             float reductionFactor2;
@@ -384,8 +388,10 @@ RT_PROGRAM void gatherPhotons()
         }
     }
     if (nValidImportons != 0) {
-        indirect *= pixelSample.throughput /
-            (nEmittedPhotons - pixelSample.nEmittedPhotonsOffset) / nValidImportons;
+        /* TODO: hard coding */
+        float scaleFactor = RGBtoGray(lightList[0].intensity) /
+            (totalDirectPhotonFlux - pixelSample.totalDirectPhotonFluxOffset);
+        indirect *= pixelSample.throughput * scaleFactor / nValidImportons;
     }
 
     /* TODO: test */
@@ -400,5 +406,5 @@ RT_PROGRAM void gatherPhotons()
         pixelSample.indirect = indirect;
         ++pixelSample.nGathered;
     }
-//    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
+    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

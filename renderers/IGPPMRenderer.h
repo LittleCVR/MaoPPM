@@ -56,10 +56,10 @@ class IGPPMRenderer : public Renderer {
     public:
         static const unsigned int  N_PASSES  = Renderer::N_PASSES + 4;
         enum Pass {
-            PixelSamplingPass    = Renderer::User + 0,
-            ImportonShootingPass = Renderer::User + 1,
-            PhotonShootingPass   = Renderer::User + 2,
-            FinalGatheringPass   = Renderer::User + 3
+            PixelSamplingPass    = Renderer::UserPass + 0,
+            ImportonShootingPass = Renderer::UserPass + 1,
+            PhotonShootingPass   = Renderer::UserPass + 2,
+            FinalGatheringPass   = Renderer::UserPass + 3
         };
 
         class PixelSample : public GatherPoint {
@@ -73,7 +73,7 @@ class IGPPMRenderer : public Renderer {
                 optix::float3   throughput;
                 optix::float3   indirect;
                 unsigned int    nGathered;
-                unsigned int    nEmittedPhotonsOffset;
+                float           totalDirectPhotonFluxOffset;
                 unsigned int    padding;
 
                 __device__ __inline__ void reset()
@@ -82,7 +82,7 @@ class IGPPMRenderer : public Renderer {
                     throughput = optix::make_float3(1.0f);
                     indirect   = optix::make_float3(0.0f);
                     nGathered             = 0;
-                    nEmittedPhotonsOffset = 0;
+                    totalDirectPhotonFluxOffset = 0.0f;
                 }
         };
 
@@ -134,6 +134,7 @@ class IGPPMRenderer : public Renderer {
         unsigned int   m_photonShootingPassLaunchWidth;
         unsigned int   m_photonShootingPassLaunchHeight;
         unsigned int   m_nEmittedPhotons;
+        float          m_totalDirectPhotonFlux;
         optix::Buffer  m_pixelSampleList;
         optix::Buffer  m_importonList;
         optix::Buffer  m_photonMap;

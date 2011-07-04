@@ -61,7 +61,7 @@ PPMRenderer::~PPMRenderer()
 
 void PPMRenderer::init()
 {
-    Renderer::init();
+    Renderer::preInit();
 
     debug("sizeof(PixelSample) = \033[01;31m%4d\033[00m.\n", sizeof(PixelSample));
     debug("sizeof(Photon)      = \033[01;31m%4d\033[00m.\n", sizeof(Photon));
@@ -80,12 +80,16 @@ void PPMRenderer::init()
     debug("\033[01;33mphotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
             sizeof(Photon) * m_nPhotonsWanted);
 
-    // variables
+    // user variables
     context()["radiusSquared"]->setFloat(m_radius * m_radius);
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
+    // auto generated variables
+    context()["frameCount"]->setUint(0);
+    context()["launchSize"]->setUint(0, 0);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
     context()["nEmittedPhotons"]->setUint(0);
+    context()["nSamplesPerThread"]->setUint(0);
 
     // programs
     context()->setEntryPointCount(N_PASSES);
@@ -96,12 +100,16 @@ void PPMRenderer::init()
     setRayGenerationProgram(PhotonShootingPass,    "PPMRenderer.cu", "shootPhotons");
     setRayGenerationProgram(DensityEstimationPass, "PPMRenderer.cu", "estimateDensity");
     setMissProgram(NormalRay, "ray.cu", "handleNormalRayMiss");
+
+    Renderer::postInit();
 }   /* -----  end of method PPMRenderer::init  ----- */
 
 
 
 void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
+    clearOutputBuffer();
+
     uint  nSamplesPerThread = 0;
     uint2 launchSize = make_uint2(0, 0);
 
@@ -121,6 +129,7 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
         context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
         context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+    }
 
     context()["frameCount"]->setUint(m_frame++);
 
@@ -150,7 +159,6 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
     createPhotonMap();
-    }
 
     // gathering
     debug("\033[01;36mPrepare to launch density estimation pass\033[00m\n");

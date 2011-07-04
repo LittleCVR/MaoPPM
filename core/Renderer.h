@@ -53,26 +53,24 @@ class Renderer {
         static const unsigned int  N_PASSES  = 1;
         enum Pass {
             ClearOutputBuffer = 0,
-            User              = 1
+            UserPass          = 1
         };
 
     public:
-        inline optix::Buffer  outputBuffer() { return m_outputBuffer[m_currentOutputBuffer]; }
+        inline optix::Buffer  outputBuffer() { return m_outputBuffer; }
         inline unsigned int   width() const { return m_width; }
         inline unsigned int   height() const { return m_height; }
         inline Scene *        scene() const { return m_scene; }
         void                  setScene(Scene * scene);
 
         /* TODO */
-        virtual void          init() { }
+        virtual void          init() = 0;
         virtual void          render(const Scene::RayGenCameraData & cameraData) = 0;
         virtual void          resize(unsigned int width, unsigned int height);
 
         void                  preInit();
         void                  postInit();
-        void                  preRender();
-        void                  postRender();
-        void                  swapOutputBuffer();
+        void                  clearOutputBuffer();
 
     public:
         virtual void  parseArguments(std::vector<char *> argumentList) { /* EMPTY */ }
@@ -127,8 +125,7 @@ class Renderer {
         Scene *        m_scene;
         unsigned int   m_width;            /* screen width */
         unsigned int   m_height;           /* screen height */
-        unsigned int   m_currentOutputBuffer;
-        optix::Buffer  m_outputBuffer[2];
+        optix::Buffer  m_outputBuffer;
         optix::Buffer  m_sampleList;
         optix::Buffer  m_localHeap;
         optix::Buffer  m_localHeapPointer;

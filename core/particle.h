@@ -209,9 +209,11 @@ class PhotonGatherer {
             if (!isBlack(f))
                 flux += f * photon->flux;
             /* TODO */
-            unsigned int thetaBin = (photon->flags >> 24) & 0xFF;
-            unsigned int phiBin   = (photon->flags >> 16) & 0xFF;
-            light->pdf[thetaBin*N_PHI + phiBin] += weight;
+            if (light) {
+                unsigned int thetaBin = (photon->flags >> 24) & 0xFF;
+                unsigned int phiBin   = (photon->flags >> 16) & 0xFF;
+                light->pdf[thetaBin*N_PHI + phiBin] += weight;
+            }
         }
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 };

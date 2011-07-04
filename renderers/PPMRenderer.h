@@ -52,9 +52,11 @@ class PPMRenderer : public Renderer {
         ~PPMRenderer();
 
     public:
-        static const unsigned int  N_PASSES  = 3;
+        static const unsigned int  N_PASSES  = Renderer::N_PASSES + 3;
         enum Pass {
-            PixelSamplingPass, PhotonShootingPass, DensityEstimationPass
+            PixelSamplingPass     = Renderer::UserPass + 0,
+            PhotonShootingPass    = Renderer::UserPass + 1,
+            DensityEstimationPass = Renderer::UserPass + 2
         };
 
         class PixelSample : public GatherPoint {

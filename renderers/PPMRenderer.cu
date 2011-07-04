@@ -78,9 +78,6 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
-    // Clear output buffer.
-    if (frameCount == 0)
-        outputBuffer[launchIndex] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
     // Clear pixel sample.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
     pixelSample.reset();
@@ -118,25 +115,6 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootPhotons()
 {
-//    /* TODO: */
-//    for (unsigned int y = launchIndex.y; y < camera.height; y += launchSize.y)
-//        for (unsigned int x = launchIndex.x; x < camera.width; x += launchSize.x) {
-//            outputBuffer[make_uint2(launchIndex.x, y)] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-////            PixelSample & pixelSample = pixelSampleList[make_uint2(x, y)];
-////            if (!(pixelSample.flags & PixelSample::isHit)) continue;
-////            Intersection * intersection = pixelSample.intersection();
-////            BSDF bsdf; intersection->getBSDF(&bsdf);
-////            float3 direct = pixelSample.throughput *
-////                estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
-////            float3 position = intersection->dg()->point;
-////            float3 pos = transformPoint(camera.worldToRaster(), position);
-////            int2   ras = make_int2(pos.x, pos.y);
-////            if (ras.x >= 0 && ras.x < camera.width && ras.y >= 0 && ras.y < camera.height) {
-////                if (isVisible(camera.position, position))
-////                    outputBuffer[make_uint2(ras.x, ras.y)] = make_float4(direct, 0.0f);
-////            }
-//        }
-
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     unsigned int sampleIndex = nSamplesPerThread * offset;
     unsigned int photonIndex = nPhotonsPerThread * offset;

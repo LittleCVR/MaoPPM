@@ -174,17 +174,19 @@ __device__ __forceinline__ optix::float3 Light::sampleL(
         }
     *thetaBin = index / N_PHI;
     *phiBin   = index % N_PHI;
+    rtPrintf("thetaBin: %u, phiBin: %u\n", *thetaBin, *phiBin);
 
-    *probability = pdf[index] / normalizedArea(*thetaBin, *phiBin);
+    *probability = (index == 0 ? cdf[index] : cdf[index] - cdf[index-1]) /
+        area(*thetaBin, *phiBin);
 
     // Sample a direction in the bin.
-    float zMax = static_cast<float>(*thetaBin+0) / N_THETA;
-    float zMin = static_cast<float>(*thetaBin+1) / N_THETA;
-    float pMax = static_cast<float>(*phiBin+0) * (2.0f * M_PIf) / N_PHI;
-    float pMin = static_cast<float>(*phiBin+1) * (2.0f * M_PIf) / N_PHI;
+    float zMax = cosf(static_cast<float>(*thetaBin+0) * M_PIf / N_THETA);
+    float zMin = cosf(static_cast<float>(*thetaBin+1) * M_PIf / N_THETA);
+    float pMax = static_cast<float>(*phiBin+1) / N_PHI;
+    float pMin = static_cast<float>(*phiBin+0) / N_PHI;
     optix::float2 s = optix::make_float2(sample);
     s.x = s.x * (zMax-zMin) + zMin;
-    s.y = (s.y * (pMax-pMin) + pMin) / (2.0f * M_PIf);
+    s.y = s.y * (pMax-pMin) + pMin;
     *wo = sampleUniformSphere(s);
 
     return intensity;

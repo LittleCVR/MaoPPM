@@ -30,6 +30,7 @@
  *  header files of our own
  *----------------------------------------------------------------------------*/
 #include    "payload.h"
+#include    "utility.h"
 #include    "Scene.h"
 
 /*----------------------------------------------------------------------------
@@ -99,19 +100,19 @@ void IGPPMRenderer::init()
     debug("\033[01;33mradiancePhotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
             sizeof(RadiancePhoton) * m_nRadiancePhotonsWanted);
 
-    // variables
+    // user variables
     context()["guidedByImportons"]->setUint(m_guidedByImportons);
     context()["radiusSquared"]->setFloat(m_radius * m_radius);
-
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
-    context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
-
+    // auto generated variables
     context()["frameCount"]->setUint(0);
     context()["launchSize"]->setUint(0, 0);
     context()["nEmittedPhotons"]->setUint(0);
     context()["nSamplesPerThread"]->setUint(0);
+    context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
+    context()["totalDirectPhotonFlux"]->setFloat(0.0f);
 
     // programs
     context()->setEntryPointCount(N_PASSES);
@@ -132,13 +133,14 @@ void IGPPMRenderer::init()
 
 void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
-    Renderer::preRender();
+    clearOutputBuffer();
 
     bool reset = false;
     if (scene()->isCameraChanged()) {
         reset = true;
         m_frame = 0;
         m_nEmittedPhotons = 0;
+        m_totalDirectPhotonFlux = 0.0f;
         scene()->setIsCameraChanged(false);
     }
 
@@ -152,6 +154,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     // ImportonShootingPass needs this,
     // to record pixel sample's nEmittedPhotonsOffset.
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     if (reset) {
         // pixel sample
@@ -172,9 +175,9 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         Light * light = &lightList[0];
         float accumulated = 0.0f;
         for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-            light->pdf[i] = light->area(i/N_PHI, i%N_PHI);
+            light->pdf[i] = light->normalizedArea(i/N_PHI, i%N_PHI);
             accumulated += light->pdf[i];
-            light->cdf[i] = accumulated / (4.0f * M_PIf);
+            light->cdf[i] = accumulated;
         }
         scene()->m_lightList->unmap();
     }
@@ -207,31 +210,34 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //            averageRadiusSquared / static_cast<float>(nImportons));
 //    m_importonList->unmap();
 
-//    Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
-//    Light * light = &lightList[0];
-//    float total = 0.0f, accumulated = 0.0f;
-//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-//        total += light->pdf[i];
-//    }
-//    debug("total: %f\n", total);
-//    debug("light PDF:");
-//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-//        light->pdf[i] /= total;
-//        accumulated += light->pdf[i];
-//        if (i % N_THETA == 0) fprintf(stderr, "\n");
-//        fprintf(stderr, "%8.4f ", light->pdf[i]);
-//        if (total != 0.0f)
-//            light->cdf[i] = 0.500f * light->cdf[i] + 0.499f * accumulated + 0.001f;
-//    }
-//    fprintf(stderr, "\n");
-//    debug("light CDF:");
-//    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
-//        light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
-//        if (i % N_THETA == 0) fprintf(stderr, "\n");
-//        fprintf(stderr, "%4.4f ", light->cdf[i]);
-//    }
-//    fprintf(stderr, "\n");
-//    scene()->m_lightList->unmap();
+    Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
+    Light * light = &lightList[0];
+    float total = 0.0f;
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        total += light->pdf[i];
+    }
+    debug("total: %f\n", total);
+    debug("light PDF:");
+    float accumulated = 0.0f, area = 0.0f;
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        light->pdf[i] /= total;
+        accumulated += light->pdf[i];
+        area += light->normalizedArea(i/N_PHI, i%N_PHI);
+        if (i % N_THETA == 0) fprintf(stderr, "\n");
+        fprintf(stderr, "%8.8f ", light->pdf[i]);
+        if (total != 0.0f)
+            light->cdf[i] = 0.5f * area + 0.5f * accumulated;
+        light->pdf[i] = 0.0f;
+    }
+    fprintf(stderr, "\n");
+    debug("light CDF:");
+    for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
+        light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
+        if (i % N_THETA == 0) fprintf(stderr, "\n");
+        fprintf(stderr, "%8.8f ", light->cdf[i]);
+    }
+    fprintf(stderr, "\n");
+    scene()->m_lightList->unmap();
 
     // photon
     debug("\033[01;36mPrepare to launch photon shooting pass\033[00m\n");
@@ -257,6 +263,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+    context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     // gathering
     debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
@@ -268,8 +275,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     endClock    = clock();
     debug("\033[01;36mFinished launching final gathering pass in %f secs.\033[00m\n",
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
-
-    Renderer::postRender();
 }   /* -----  end of method IGPPMRenderer::render  ----- */
 
 
@@ -403,8 +408,10 @@ void IGPPMRenderer::createPhotonMap()
             bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
             bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
             // PPM does not have to store direct photons, but IGPPM has to.
-            if (photonListPtr[i].flags & Photon::Direct)
+            if (photonListPtr[i].flags & Photon::Direct) {
                 ++nDirectPhotons;
+                m_totalDirectPhotonFlux += RGBtoGray(photonListPtr[i].flux);
+            }
             ++nValidPhotons;
         }
     m_nEmittedPhotons += nDirectPhotons;

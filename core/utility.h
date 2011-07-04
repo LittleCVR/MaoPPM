@@ -168,6 +168,11 @@ __device__ __inline__ void printFloat3(const optix::float3 & v)
 
 #endif  /* -----  #ifdef __CUDACC__  ----- */
 
+__host__ __device__ __inline__ bool RGBtoGray(const optix::float3 & color)
+{
+    return 0.30f * color.x + 0.59f * color.y + 0.11f * color.z;
+}
+
 /* 
  * ===  FUNCTION  ==============================================================
  *         Name:  
