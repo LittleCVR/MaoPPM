@@ -141,15 +141,15 @@ RT_PROGRAM void shootImportons()
 
     const Intersection * pIntersection = pixelSample.intersection();
     const BSDF pBSDF = pIntersection->getBSDF();
+    Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection,
+            LOCAL_HEAP_GET_CURRENT_INDEX() + offset * sizeof(Intersection));
+    BSDF bsdf;
+
 
     // other importons
     for (uint i = 0; i < nImportonsPerThread; i++) {
         Importon & importon = importonList[importonIndex+i];
         // Allocate memory for intersection. This is for importon.
-        Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection,
-                LOCAL_HEAP_GET_CURRENT_INDEX() + (offset + i) * sizeof(Intersection));
-        BSDF bsdf;
-
         float probability;
         float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
         Ray ray(camera.position, -pixelSample.wo, NormalRay, rayEpsilon);
@@ -166,6 +166,8 @@ RT_PROGRAM void shootImportons()
         importon.flags |= Importon::isHit;
         importon.setIntersection(intersection);
         importon.radiusSquared = radiusSquared;
+
+        ++intersection;
 
 //        /* TODO */
 //        float3 position = intersection->dg()->point;
@@ -214,9 +216,18 @@ RT_PROGRAM void shootPhotons()
             const Light * light = sampleOneLightUniformly(lightSample);
             // sample direction
             float  probability;
-            float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
             /* TODO: add guidedByImportons */
-            float3 Le = light->sampleL(sample, &wo, &probability);
+            float3 Le;
+            if (!guidedByImportons) {
+                float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
+                Le = light->sampleL(sample, &wo, &probability);
+            } else {
+                unsigned int thetaBin, phiBin;
+                float3 sample = GET_3_SAMPLES(sampleList, sampleIndex);
+                Le = light->sampleL(sample, &wo, &probability,
+                        &thetaBin, &phiBin);
+                binFlags = (thetaBin << 24) | (phiBin << 16);
+            }
             flux = Le / probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
 //            unsigned int thetaBin, phiBin;
@@ -263,7 +274,6 @@ RT_PROGRAM void shootPhotons()
 //                            s.x, s.y, theta, phi, flux.x, flux.y, flux.z);
 //                }
 //            }
-//            binFlags = (thetaBin << 24) | (phiBin << 16);
         }
         // starts from surface
         else {

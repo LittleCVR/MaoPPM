@@ -212,8 +212,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //        if (i % N_THETA == 0) fprintf(stderr, "\n");
 //        fprintf(stderr, "%8.4f ", light->pdf[i]);
 //        if (total != 0.0f)
-//            light->cdf[i] = 0.50f * light->cdf[i] + 0.49f * accumulated + 0.01f;
-//        light->pdf[i] = 0.0f;
+//            light->cdf[i] = 0.500f * light->cdf[i] + 0.499f * accumulated + 0.001f;
 //    }
 //    fprintf(stderr, "\n");
 //    debug("light CDF:");
@@ -343,6 +342,15 @@ void IGPPMRenderer::parseArguments(vector<char *> argumentList)
                 exit(EXIT_FAILURE);
             }
         }
+        else if (arg == "--nimportons") {
+            if (++it != argumentList.end()) {
+                m_nImportonsPerThread = atoi(*it);
+                cerr << "Set importons per thread to " << m_nImportonsPerThread << endl;
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
         // otherwise
         else {
             std::cerr << "Unknown option: '" << arg << std::endl;
@@ -357,8 +365,9 @@ void IGPPMRenderer::printUsageAndExit(bool doExit)
 {
     std::cerr
         << "IGPPM options:" << std::endl
-        << "  -G | --guided <bool>    Set IGPPM to shoot photons guided by importons or not." << std::endl
-        << "     | --raduis <float>   Set IGPPM's maximum gathering distance."                << std::endl
+        << "  -G | --guided <bool>     Set IGPPM to shoot photons guided by importons or not." << std::endl
+        << "     | --raduis <float>    Set IGPPM's maximum gathering distance."                << std::endl
+        << "     | --nimportons <int>  Set IGPPM to use N importons per thread."               << std::endl
         << std::endl;
 
     if (doExit)
