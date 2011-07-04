@@ -55,6 +55,8 @@ rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
 rtBuffer<float,       1>  sampleList;
 
+rtDeclareVariable(float, radiusSquared  , , );
+
 rtDeclareVariable(uint, frameCount         , , );
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, nPhotonsPerThread  , , );
@@ -103,6 +105,7 @@ RT_PROGRAM void generatePixelSamples()
     }
     pixelSample.flags |= PixelSample::isHit;
     pixelSample.setIntersection(intersection);
+    pixelSample.radiusSquared = radiusSquared;
 }   /* -----  end of function generatePixelSamples  ----- */
 
 
@@ -115,6 +118,25 @@ RT_PROGRAM void generatePixelSamples()
  */
 RT_PROGRAM void shootPhotons()
 {
+    /* TODO: */
+    for (unsigned int y = launchIndex.y; y < camera.height; y += launchSize.y)
+        for (unsigned int x = launchIndex.x; x < camera.width; x += launchSize.x) {
+            outputBuffer[make_uint2(x, y)] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+//            PixelSample & pixelSample = pixelSampleList[make_uint2(x, y)];
+//            if (!(pixelSample.flags & PixelSample::isHit)) continue;
+//            Intersection * intersection = pixelSample.intersection();
+//            BSDF bsdf; intersection->getBSDF(&bsdf);
+//            float3 direct = pixelSample.throughput *
+//                estimateAllDirectLighting(intersection->dg()->point, bsdf, pixelSample.wo);
+//            float3 position = intersection->dg()->point;
+//            float3 pos = transformPoint(camera.worldToRaster(), position);
+//            int2   ras = make_int2(pos.x, pos.y);
+//            if (ras.x >= 0 && ras.x < camera.width && ras.y >= 0 && ras.y < camera.height) {
+//                if (isVisible(camera.position, position))
+//                    outputBuffer[make_uint2(ras.x, ras.y)] = make_float4(direct, 0.0f);
+//            }
+        }
+
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     unsigned int sampleIndex = nSamplesPerThread * offset;
     unsigned int photonIndex = nPhotonsPerThread * offset;
@@ -171,13 +193,16 @@ RT_PROGRAM void shootPhotons()
         photon.wi       = wi;
         photon.flux     = flux;
 
-//        /* TODO */
-//        float3 pos = transformPoint(camera.worldToRaster(), photon.position);
-//        uint2  ras = make_uint2(pos.x, pos.y);
-//        if (ras.x < camera.width && ras.y < camera.height) {
-//            if (isVisible(camera.position, photon.position))
-//                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
-//        }
+        /* TODO */
+        if (photon.flags & Photon::All) {
+            float3 position = photon.position;
+            float3 pos = transformPoint(camera.worldToRaster(), position);
+            int2   ras = make_int2(floorf(pos.x), floorf(pos.y));
+            if (ras.x >= 0 && ras.x < camera.width && ras.y >= 0 && ras.y < camera.height) {
+                if (isVisible(camera.position, position))
+                    outputBuffer[make_uint2(ras.x, ras.y)] = make_float4(1.0f, 0.0f, 0.0f, 0.0f);
+            }
+        }
 
         // Reset depth if necessary.
         if (depth % maxRayDepth == 0)
@@ -234,5 +259,5 @@ RT_PROGRAM void estimateDensity()
 
     // Output.
     float3 indirect = pixelSample.flux / (M_PIf * pixelSample.radiusSquared) / nEmittedPhotons;
-    outputBuffer[launchIndex] = make_float4(direct + indirect, 1.0f);
+//    outputBuffer[launchIndex] = make_float4(direct + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

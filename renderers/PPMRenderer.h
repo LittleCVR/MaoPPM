@@ -69,15 +69,20 @@ class PPMRenderer : public Renderer {
                 }
         };
 
-    private:
-        void createPhotonMap();
-
     public:
         void    init();
         void    resize(unsigned int width, unsigned int height);
         void    render(const Scene::RayGenCameraData & cameraData);
 
+    public:
+        void    parseArguments(std::vector<char *> argumentList);
+        void    printUsageAndExit(bool doExit = true);
+
     private:
+        void    createPhotonMap();
+
+    private:
+        float          m_radius;
         unsigned int   m_nPhotonsUsed;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nPhotonsPerThread;

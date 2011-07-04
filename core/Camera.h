@@ -107,10 +107,10 @@ __device__ __forceinline__ optix::Matrix4x4 Camera::cameraToWorld() const
 __device__ __forceinline__ optix::Matrix4x4 Camera::cameraToScreen() const
 {
     float n = focalLength();
+    /* TODO: hard coded fat clipping plane */
     float f = 1.0e+6;
     float a = 1.0f / tanf(hFOV() / 2.0f);
     float b = 1.0f / tanf(vFOV() / 2.0f);
-    rtPrintf("a = %f, b = %f\n", a, b);
     // Perform projective divide
     float m[16] = { a, 0,           0,              0,
                     0, b,           0,              0,

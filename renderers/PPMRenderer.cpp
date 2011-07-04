@@ -39,6 +39,7 @@ using namespace MaoPPM;
 
 
 PPMRenderer::PPMRenderer(Scene * scene) : Renderer(scene),
+    m_radius(DEFAULT_RADIUS),
     m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
     m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
     m_photonShootingPassLaunchWidth(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH),
@@ -80,6 +81,7 @@ void PPMRenderer::init()
             sizeof(Photon) * m_nPhotonsWanted);
 
     // variables
+    context()["radiusSquared"]->setFloat(m_radius * m_radius);
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
@@ -119,7 +121,6 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
         context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
         context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
-    }
 
     context()["frameCount"]->setUint(m_frame++);
 
@@ -149,9 +150,10 @@ void PPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(PhotonShootingPass, launchSize.x, launchSize.y);
     createPhotonMap();
+    }
 
     // gathering
-    debug("\033[01;36mPrepare to launch final gathering pass\033[00m\n");
+    debug("\033[01;36mPrepare to launch density estimation pass\033[00m\n");
     setLocalHeapPointer(m_densityEstimationPassLocalHeapOffset);
     context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
     launchSize = make_uint2(width(), height());
@@ -190,6 +192,45 @@ void PPMRenderer::resize(unsigned int width, unsigned int height)
         m_densityEstimationPassLocalHeapOffset + m_densityEstimationPassLocalHeapSize;
     setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method PPMRenderer::doResize  ----- */
+
+
+
+void PPMRenderer::parseArguments(vector<char *> argumentList)
+{
+    int argc = argumentList.size();
+    for (vector<char *>::iterator it = argumentList.begin();
+         it != argumentList.end(); ++it)
+    {
+        std::string arg(*it);
+        if (arg == "--radius") {
+            if (++it != argumentList.end()) {
+                m_radius = atof(*it);
+                cerr << "Set radius to " << m_radius << endl;
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+        // otherwise
+        else {
+            std::cerr << "Unknown option: '" << arg << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}   /* -----  end of function PPMRenderer::parseArguments  ----- */
+
+
+
+void PPMRenderer::printUsageAndExit(bool doExit)
+{
+    std::cerr
+        << "PPM options:" << std::endl
+        << "     | --raduis <float>    Set PPM's maximum gathering distance." << std::endl
+        << std::endl;
+
+    if (doExit)
+        exit(EXIT_FAILURE);
+}   /* -----  end of function PPMRenderer::printUsageAndExit  ----- */
 
 
 

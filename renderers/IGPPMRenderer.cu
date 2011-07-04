@@ -131,6 +131,9 @@ RT_PROGRAM void shootImportons()
     pixelSample.flags &= ~PixelSample::Regather;
     pixelSample.nEmittedPhotonsOffset = nEmittedPhotons;
 
+//    /* TODO */
+//    outputBuffer[launchIndex] = make_float4(0.0f);
+
     // Prepare offset variables.
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     unsigned int sampleIndex   = offset * nSamplesPerThread;
@@ -167,8 +170,6 @@ RT_PROGRAM void shootImportons()
         importon.setIntersection(intersection);
         importon.radiusSquared = radiusSquared;
 
-        ++intersection;
-
 //        /* TODO */
 //        float3 position = intersection->dg()->point;
 //        float3 pos = transformPoint(camera.worldToRaster(), position);
@@ -177,6 +178,8 @@ RT_PROGRAM void shootImportons()
 //            if (isVisible(camera.position, position))
 //                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
 //        }
+
+        ++intersection;
     }
 }   /* -----  end of function shootImportons  ----- */
 
@@ -190,6 +193,11 @@ RT_PROGRAM void shootImportons()
  */
 RT_PROGRAM void shootPhotons()
 {
+    /* TODO: */
+    for (unsigned int y = launchIndex.y; y < camera.height; y += launchSize.y)
+        for (unsigned int x = launchIndex.x; x < camera.width; x += launchSize.x)
+            outputBuffer[make_uint2(x, y)] = make_float4(0.0f);
+
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     unsigned int sampleIndex = nSamplesPerThread * offset;
     unsigned int photonIndex = nPhotonsPerThread * offset;
@@ -216,9 +224,9 @@ RT_PROGRAM void shootPhotons()
             const Light * light = sampleOneLightUniformly(lightSample);
             // sample direction
             float  probability;
-            /* TODO: add guidedByImportons */
             float3 Le;
             if (!guidedByImportons) {
+                rtPrintf("not guided by importons\n");
                 float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
                 Le = light->sampleL(sample, &wo, &probability);
             } else {
@@ -230,50 +238,6 @@ RT_PROGRAM void shootPhotons()
             }
             flux = Le / probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
-//            unsigned int thetaBin, phiBin;
-//            if (!guidedByImportons) {
-//                float2 s = make_float2(sample);
-//                wo = sampleUniformSphere(s);
-//                float theta = acosf(wo.z);
-//                float phi   = acosf(wo.x);
-//                if (wo.y < 0.0f) phi += M_PIf;
-//                thetaBin = fminf(N_THETA-1,
-//                        floorf(theta / M_PIf * static_cast<float>(N_THETA)));
-//                phiBin = fminf(N_PHI-1,
-//                        floorf(phi / (2.0f*M_PIf) * static_cast<float>(N_PHI)));
-//                flux = light.flux * 4.0f * M_PIf;
-//            } else {
-//                // CDF
-//                uint index = 0;
-//                for (uint j = 0; j < N_THETA*N_PHI; ++j)
-//                    if (sample.z <= light.cdf[j]) {
-//                        index = j;
-//                        break;
-//                    }
-//                thetaBin = index / N_PHI;
-//                phiBin   = index % N_PHI;
-//                float zMax = static_cast<float>(thetaBin+0) / N_THETA;
-//                float zMin = static_cast<float>(thetaBin+1) / N_THETA;
-//                float pMax = static_cast<float>(phiBin+0) * (2.0f * M_PIf) / N_PHI;
-//                float pMin = static_cast<float>(phiBin+1) * (2.0f * M_PIf) / N_PHI;
-//                float2 s = make_float2(sample);
-//                s.x = s.x * (zMax-zMin) + zMin;
-//                s.y = (s.y * (pMax-pMin) + pMin) / (2.0f * M_PIf);
-//                wo = sampleUniformSphere(s);
-//                flux = light.flux * 4.0f * M_PIf * light.normalizedArea(thetaBin, phiBin) /
-//                    (index == 0 ? light.cdf[index] : (light.cdf[index]-light.cdf[index-1]));
-//                if (launchIndex.x == 128 && launchIndex.y == 128) {
-//                    float theta = acosf(wo.z);
-//                    float phi   = acosf(wo.x);
-//                    if (wo.y < 0.0f) phi += M_PIf;
-//                    theta = theta * 180.0f / M_PIf;
-//                    phi   = phi   * 180.0f / M_PIf;
-//                    rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, ",
-//                            thetaBin, phiBin, zMin, zMax, pMin, pMax);
-//                    rtPrintf("s.x: %f, s.y: %f, theta: %f, phi: %f, flux: %f %f %f\n",
-//                            s.x, s.y, theta, phi, flux.x, flux.y, flux.z);
-//                }
-//            }
         }
         // starts from surface
         else {
@@ -306,16 +270,17 @@ RT_PROGRAM void shootPhotons()
         photon.wi       = wi;
         photon.flux     = flux;
 
-//        /* TODO */
-//        if (photon.flags & Photon::Direct) {
-//            float3 position = intersection->dg()->point;
-//            float3 pos = transformPoint(camera.worldToRaster(), position);
-//            uint2  ras = make_uint2(pos.x, pos.y);
-//            if (ras.x < camera.width && ras.y < camera.height) {
-//                if (isVisible(camera.position, position))
-//                    outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
-//            }
-//        }
+        /* TODO */
+        if (photon.flags & Photon::All) {
+            float3 position = intersection->dg()->point;
+            float3 pos = transformPoint(camera.worldToRaster(), position);
+            uint2  ras = make_uint2(pos.x, pos.y);
+            rtPrintf("raster: %u %u\n", ras.x, ras.y);
+            if (ras.x < camera.width && ras.y < camera.height) {
+                if (isVisible(camera.position, position))
+                    outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+            }
+        }
 
         // After traceUntilNonSpecularSurface(),
         // photons should be all indirect now.
@@ -400,11 +365,17 @@ RT_PROGRAM void gatherPhotons()
                 importon.radiusSquared = maxDistanceSquared;
             }
             else {  // frameCount != 0
-                flux = PhotonGatherer::accumulateFlux(
-                        intersection->dg()->point, importon.wo, &bsdf,
-                        &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-                        Photon::Flag(Photon::Direct | Photon::Indirect),
-                        &lightList[0], dot(importon.throughput, importon.throughput));
+                if (!guidedByImportons)
+                    flux = PhotonGatherer::accumulateFlux(
+                            intersection->dg()->point, importon.wo, &bsdf,
+                            &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                            Photon::Flag(Photon::Direct | Photon::Indirect));
+                else
+                    flux = PhotonGatherer::accumulateFlux(
+                            intersection->dg()->point, importon.wo, &bsdf,
+                            &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                            Photon::Flag(Photon::Direct | Photon::Indirect),
+                            &lightList[0], dot(importon.throughput, importon.throughput));
             }
 
             float reductionFactor2;
@@ -442,5 +413,5 @@ RT_PROGRAM void gatherPhotons()
         pixelSample.indirect = indirect;
         ++pixelSample.nGathered;
     }
-    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
+//    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */
