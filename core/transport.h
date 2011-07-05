@@ -83,6 +83,22 @@ __device__ __forceinline__ bool bounce(
     return true;
 }
 
+__device__ __forceinline__ bool trace(
+        const optix::Ray & ray, Intersection * intersection, BSDF * bsdf, optix::float3 * wo)
+{
+    NormalRayPayload payload;
+    payload.reset();
+    payload.setIntersectionBuffer(intersection);
+    // Intersect with the scene.
+    rtTrace(rootObject, ray, payload);
+    // Not hit.
+    if (!payload.isHit) return false;
+    // Fill intersection and bsdf.
+    *wo = -ray.direction;
+    intersection->getBSDF(bsdf);
+    return true;
+}
+
 /* 
  * ===  FUNCTION  ==============================================================
  *         Name:  traceUntilNonSpecularSurface
@@ -113,41 +129,29 @@ __device__ __forceinline__ bool traceUntilNonSpecularSurface(
         Intersection * intersection, BSDF * bsdf,
         optix::float3 * wo, optix::float3 * throughput)
 {
-    if (*depth == maxDepth)
+    if (*depth >= maxDepth)
         return false;
 
-    NormalRayPayload payload;
-    payload.setIntersectionBuffer(intersection);
-    optix::float3 wi = ray->direction;
     for (unsigned int i = 0; i < maxDepth; ++i) {
-        // Intersect with the scene.
-        payload.reset();
-        rtTrace(rootObject, *ray, payload);
-        // Terminate immediately if not hit.
-        if (!payload.isHit)
+        if (!trace(*ray, intersection, bsdf, wo))
             return false;
-
-        // Increase depth, forward to the next intersection, swap wo and wi.
+        // Increase depth.
         ++(*depth);
-        *wo = -wi;
-        intersection->getBSDF(bsdf);
         // If the surface is not a perfect specular surface.
-        if (bsdf->nBxDFs(BxDF::Type(BxDF::All & ~BxDF::Specular)) > 0)
+        if (!bsdf->isSpecular())
             return true;
         // Terminate if it's too deep.
-        if (*depth == maxDepth)
+        if (*depth >= maxDepth)
             return false;
-
-        // Compute throughput and make new ray.
+        // Otherwise, compute throughput and make new ray.
         float  probability;
         // Do not have to use real sample since the surface is perfect specular.
-        optix::float3 sample = optix::make_float3(0.0f);
+        optix::float3 sample = optix::make_float3(0.5f);
         if (!bounce(ray, *intersection->dg(), *bsdf, sample, &probability, throughput,
                 BxDF::Type(BxDF::Reflection | BxDF::Transmission | BxDF::Specular)))
         {
             return false;
         }
-        wi = ray->direction;
     }
 
     return false;

@@ -109,6 +109,11 @@ class BSDF {
             return NULL;
         }
 
+        __device__ __forceinline__ bool isSpecular() const
+        {
+            return (nBxDFs(BxDF::Type(BxDF::All & ~BxDF::Specular)) == 0);
+        }
+
     public:
         __device__ optix::float3 f(const optix::float3 & worldWo,
                 const optix::float3 & worldWi, BxDF::Type sampleType = BxDF::All) const

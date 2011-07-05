@@ -83,6 +83,7 @@ class PathTracingRenderer : public Renderer {
         unsigned int    m_frame;
         unsigned int    m_demandLocalHeapSize;
         optix::Buffer   m_samplePointList;
+        optix::Buffer   m_pathCountList;
 };  /* -----  end of class PathTracingRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
