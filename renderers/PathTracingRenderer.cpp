@@ -60,10 +60,13 @@ void PathTracingRenderer::init()
 {
     Renderer::preInit();
 
-    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
+    // buffers
+    m_samplePointList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
+    m_samplePointList->setElementSize(sizeof(SamplePoint));
+    m_samplePointList->setSize(width() * height() * DEFAULT_MAX_RAY_DEPTH);
+    context()["samplePointList"]->set(m_samplePointList);
 
-    // Do not need this.
-    setLocalHeapSize(0);
+    context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
 
     context()->setEntryPointCount(N_PASSES);
     setExceptionProgram(PathTracingPass);
@@ -77,18 +80,23 @@ void PathTracingRenderer::init()
 
 void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 {
-    resetLocalHeapPointer();
-
     if (scene()->isCameraChanged()) {
         scene()->setIsCameraChanged(false);
         m_frame = 0;
     }
 
-    // Launch path tracing pass.
-    generateSamples(3 * width() * height() * DEFAULT_MAX_RAY_DEPTH);
-    context()["nSamplesPerThread"]->setUint(3 * DEFAULT_MAX_RAY_DEPTH);
+    uint  nSamplesPerThread = 0;
+    uint2 launchSize = make_uint2(0, 0);
+
     context()["frameCount"]->setUint(m_frame);
-    context()["launchSize"]->setUint(width(), height());
+
+    // Launch path tracing pass.
+    setLocalHeapPointer(0);
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 3;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
     context()->launch(PathTracingPass, width(), height());
 
     // Add frame count.
@@ -100,4 +108,13 @@ void PathTracingRenderer::render(const Scene::RayGenCameraData & cameraData)
 void PathTracingRenderer::resize(unsigned int width, unsigned int height)
 {
     Renderer::resize(width, height);
+
+    m_samplePointList->setSize(width * height * DEFAULT_MAX_RAY_DEPTH);
+    context()["samplePointList"]->set(m_samplePointList);
+    debug("\033[01;33msamplePointList\033[00m resized to: \033[01;31m%10u\033[00m.\n",
+            sizeof(SamplePoint) * DEFAULT_MAX_RAY_DEPTH * width * height);
+
+    m_demandLocalHeapSize = width * height *
+            DEFAULT_MAX_RAY_DEPTH * sizeof(Intersection);
+    setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method PathTracingRenderer::resize  ----- */
