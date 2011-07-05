@@ -184,10 +184,13 @@ __device__ __forceinline__ optix::float3 Light::sampleL(
     float zMin = cosf(static_cast<float>(*thetaBin+1) * M_PIf / N_THETA);
     float pMax = static_cast<float>(*phiBin+1) / N_PHI;
     float pMin = static_cast<float>(*phiBin+0) / N_PHI;
-    optix::float2 s = optix::make_float2(sample);
-    s.x = s.x * (zMax-zMin) + zMin;
-    s.y = s.y * (pMax-pMin) + pMin;
-    *wo = sampleUniformSphere(s);
+
+    float z = sample.x * (zMax-zMin) + zMin;
+    float r = sqrtf(1.0f - z*z);
+    float phi = 2.0f * M_PIf * (sample.y * (pMax-pMin) + pMin);
+    float x = r * cosf(phi);
+    float y = r * sinf(phi);
+    *wo = optix::make_float3(x, y, z);
 
     return intensity;
 

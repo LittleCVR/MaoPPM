@@ -166,14 +166,14 @@ RT_PROGRAM void shootImportons()
         importon.setIntersection(intersection);
         importon.radiusSquared = radiusSquared;
 
-        /* TODO */
-        float3 position = intersection->dg()->point;
-        float3 pos = transformPoint(camera.worldToRaster(), position);
-        uint2  ras = make_uint2(pos.x, pos.y);
-        if (ras.x < camera.width && ras.y < camera.height) {
-            if (isVisible(camera.position, position))
-                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
-        }
+//        /* TODO */
+//        float3 position = intersection->dg()->point;
+//        float3 pos = transformPoint(camera.worldToRaster(), position);
+//        uint2  ras = make_uint2(pos.x, pos.y);
+//        if (ras.x < camera.width && ras.y < camera.height) {
+//            if (isVisible(camera.position, position))
+//                outputBuffer[ras] += make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+//        }
 
         ++intersection;
     }
@@ -262,7 +262,7 @@ RT_PROGRAM void shootPhotons()
         photon.flux     = flux;
 
         /* TODO */
-        if (photon.flags & Photon::All) {
+        if (photon.flags & Photon::Direct && depth == 1) {
             float3 position = intersection->dg()->point;
             float3 pos = transformPoint(camera.worldToRaster(), position);
             uint2  ras = make_uint2(pos.x, pos.y);
@@ -326,10 +326,17 @@ RT_PROGRAM void gatherPhotons()
         pixelSample.radiusSquared = maxDistanceSquared;
     }
     else {  // frameCount != 0
-        flux = PhotonGatherer::accumulateFlux(
-                intersection->dg()->point, pixelSample.wo, &bsdf,
-                &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
-                Photon::Flag(Photon::Caustic));
+        if (!guidedByImportons)
+            flux = PhotonGatherer::accumulateFlux(
+                    intersection->dg()->point, pixelSample.wo, &bsdf,
+                    &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                    Photon::Flag(Photon::Caustic));
+        else
+            flux = PhotonGatherer::accumulateFlux(
+                    intersection->dg()->point, pixelSample.wo, &bsdf,
+                    &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
+                    Photon::Flag(Photon::Caustic),
+                    &lightList[0], pixelSample.radiusSquared * length(pixelSample.throughput));
     }
     pixelSample.shrinkRadius(flux, nAccumulatedPhotons);
 
@@ -366,7 +373,7 @@ RT_PROGRAM void gatherPhotons()
                             intersection->dg()->point, importon.wo, &bsdf,
                             &photonMap[0], &maxDistanceSquared, &nAccumulatedPhotons,
                             Photon::Flag(Photon::Direct | Photon::Indirect),
-                            &lightList[0], importon.radiusSquared * dot(importon.throughput, importon.throughput));
+                            &lightList[0], importon.radiusSquared * length(importon.throughput));
             }
 
             float reductionFactor2;
