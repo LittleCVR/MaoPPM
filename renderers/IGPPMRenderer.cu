@@ -55,6 +55,7 @@ rtBuffer<PixelSample, 2>  pixelSampleList;
 rtBuffer<Importon,    1>  importonList;
 rtBuffer<Photon,      1>  photonList;
 rtBuffer<Photon,      1>  photonMap;
+rtBuffer<float,       2>  directPhotonFluxList;
 rtBuffer<float,       1>  sampleList;
 
 rtDeclareVariable(uint,  guidedByImportons  , , );
@@ -65,7 +66,6 @@ rtDeclareVariable(uint,  nImportonsPerThread, , );
 rtDeclareVariable(uint,  frameCount           , , );
 rtDeclareVariable(uint,  nSamplesPerThread    , , );
 rtDeclareVariable(uint,  nPhotonsPerThread    , , );
-rtDeclareVariable(uint,  nEmittedPhotons      , , );
 rtDeclareVariable(float, totalDirectPhotonFlux, , );
 
 rtDeclareVariable(Camera, camera, , );
@@ -196,6 +196,7 @@ RT_PROGRAM void shootPhotons()
     // Clear photon list.
     for (uint i = 0; i < nPhotonsPerThread; i++)
         photonList[photonIndex+i].reset();
+    directPhotonFluxList[launchIndex] = 0.0f;
 
     // Allocate memory for intersection.
     Intersection * intersection = LOCAL_HEAP_GET_OBJECT_POINTER(Intersection,
@@ -239,6 +240,9 @@ RT_PROGRAM void shootPhotons()
             if (!bounce(&ray, *intersection->dg(), bsdf, sample, &probability, &flux))
                 continue;
         }
+
+        // Add flux to direct photon flux list.
+        directPhotonFluxList[launchIndex] += RGBtoGray(flux);
 
         // trace ray
         if (!traceUntilNonSpecularSurface(&ray, maxRayDepth, &depth,

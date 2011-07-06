@@ -92,13 +92,9 @@ void IGPPMRenderer::init()
     debug("\033[01;33mphotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
             sizeof(RadiancePhoton) * m_nPhotonsWanted / 8);
 
-    m_radiancePhotonMap = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
-    m_radiancePhotonMap->setElementSize(sizeof(RadiancePhoton));
-    m_radiancePhotonMap->setSize(m_nRadiancePhotonsWanted);
-    context()["radiancePhotonList"]->set(m_radiancePhotonMap);
-    context()["radiancePhotonMap"]->set(m_radiancePhotonMap);
-    debug("\033[01;33mradiancePhotonMap\033[00m consumes: \033[01;31m%10u\033[00m.\n",
-            sizeof(RadiancePhoton) * m_nRadiancePhotonsWanted);
+    m_directPhotonFluxList = context()->createBuffer(RT_BUFFER_OUTPUT, RT_FORMAT_FLOAT);
+    m_directPhotonFluxList->setSize(m_photonShootingPassLaunchWidth, m_photonShootingPassLaunchHeight);
+    context()["directPhotonFluxList"]->set(m_directPhotonFluxList);
 
     // user variables
     context()["guidedByImportons"]->setUint(m_guidedByImportons);
@@ -109,7 +105,6 @@ void IGPPMRenderer::init()
     // auto generated variables
     context()["frameCount"]->setUint(0);
     context()["launchSize"]->setUint(0, 0);
-    context()["nEmittedPhotons"]->setUint(0);
     context()["nSamplesPerThread"]->setUint(0);
     context()["nPhotonsPerThread"]->setUint(m_nPhotonsPerThread);
     context()["totalDirectPhotonFlux"]->setFloat(0.0f);
@@ -139,7 +134,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     if (scene()->isCameraChanged()) {
         reset = true;
         m_frame = 0;
-        m_nEmittedPhotons = 0;
         m_totalDirectPhotonFlux = 0.0f;
         scene()->setIsCameraChanged(false);
     }
@@ -151,9 +145,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     uint2 launchSize = make_uint2(0, 0);
 
     context()["frameCount"]->setUint(m_frame++);
-    // ImportonShootingPass needs this,
-    // to record pixel sample's nEmittedPhotonsOffset.
-    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
     context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     if (reset) {
@@ -262,7 +253,11 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     debug("\033[01;36mFinished building photon map in %f secs.\033[00m\n",
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
-    context()["nEmittedPhotons"]->setUint(m_nEmittedPhotons);
+
+    float * directPhotonFluxList = static_cast<float *>(m_directPhotonFluxList->map());
+    for (unsigned int i = 0; i < m_photonShootingPassLaunchWidth*m_photonShootingPassLaunchHeight; ++i)
+        m_totalDirectPhotonFlux += directPhotonFluxList[i];
+    m_directPhotonFluxList->unmap();
     context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     // gathering
@@ -284,12 +279,13 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
     Renderer::resize(width, height);
 
     m_pixelSampleList->setSize(width, height);
-    context()["pixelSampleList"]->set(m_pixelSampleList);
-    debug("\033[01;33mpixelSampleList\033[00m resized to: \033[01;31m%10u\033[00m.\n",
+    debug("\033[01;33mpixelSampleList\033[00m      resized to: \033[01;31m%10u\033[00m.\n",
             sizeof(PixelSample) * width * height);
     m_importonList->setSize(m_nImportonsPerThread * width * height);
-    context()["importonList"]->set(m_importonList);
-    debug("\033[01;33mimportonList\033[00m    resized to: \033[01;31m%10u\033[00m.\n",
+    debug("\033[01;33mimportonList\033[00m         resized to: \033[01;31m%10u\033[00m.\n",
+            sizeof(Importon) * m_nImportonsPerThread * width * height);
+    m_directPhotonFluxList->setSize(m_photonShootingPassLaunchWidth, m_photonShootingPassLaunchHeight);
+    debug("\033[01;33mdirectPhotonFluxList\033[00m resized to: \033[01;31m%10u\033[00m.\n",
             sizeof(Importon) * m_nImportonsPerThread * width * height);
 
     // Local heap.
@@ -408,13 +404,10 @@ void IGPPMRenderer::createPhotonMap()
             bbMin = fminf(bbMin, validPhotonList[nValidPhotons].position);
             bbMax = fmaxf(bbMax, validPhotonList[nValidPhotons].position);
             // PPM does not have to store direct photons, but IGPPM has to.
-            if (photonListPtr[i].flags & Photon::Direct) {
+            if (photonListPtr[i].flags & Photon::Direct)
                 ++nDirectPhotons;
-                m_totalDirectPhotonFlux += RGBtoGray(photonListPtr[i].flux);
-            }
             ++nValidPhotons;
         }
-    m_nEmittedPhotons += nDirectPhotons;
     debug("direct photons: \033[01;31m%u\033[00m\n", nDirectPhotons);
     debug("valid  photons: \033[01;31m%u\033[00m\n", nValidPhotons);
 

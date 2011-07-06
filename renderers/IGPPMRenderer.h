@@ -133,12 +133,11 @@ class IGPPMRenderer : public Renderer {
         unsigned int   m_nPhotonsPerThread;
         unsigned int   m_photonShootingPassLaunchWidth;
         unsigned int   m_photonShootingPassLaunchHeight;
-        unsigned int   m_nEmittedPhotons;
         float          m_totalDirectPhotonFlux;
         optix::Buffer  m_pixelSampleList;
         optix::Buffer  m_importonList;
         optix::Buffer  m_photonMap;
-        optix::Buffer  m_radiancePhotonMap;
+        optix::Buffer  m_directPhotonFluxList;
         unsigned int   m_pixelSamplingPassLocalHeapSize;
         unsigned int   m_importonShootingPassLocalHeapOffset;
         unsigned int   m_importonShootingPassLocalHeapSize;
