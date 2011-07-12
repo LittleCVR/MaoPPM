@@ -52,6 +52,7 @@ rtBuffer<float4,       2>  outputBuffer;
 rtBuffer<float,        1>  sampleList;
 rtBuffer<SamplePoint,  1>  samplePointList;
 rtBuffer<unsigned int, 1>  pathCountList;
+rtBuffer<float3,       1>  radianceList;
 
 rtDeclareVariable(uint, nSamplesPerThread  , , );
 rtDeclareVariable(uint, maxRayDepth        , , );
@@ -66,7 +67,26 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
 
 /* 
  * ===  FUNCTION  ==============================================================
- *         Name:  generatePixelSamples
+ *         Name:  
+ *  Description:  
+ * =============================================================================
+ */
+RT_PROGRAM void clear()
+{
+    unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
+    unsigned int index  = maxRayDepth * offset;
+    // Clear path count.
+    for (unsigned int i = 0; i < maxRayDepth; ++i) {
+        pathCountList[index + i] = 0;
+        radianceList [index + i] = make_float3(0.0f);
+    }
+}   /* -----  end of function clear  ----- */
+
+
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  
  *  Description:  
  * =============================================================================
  */
@@ -82,10 +102,15 @@ RT_PROGRAM void trace()
     unsigned int sampleIndex = nSamplesPerThread * offset;
     unsigned int samplePointIndex = maxRayDepth * offset;
     unsigned int pathCountIndex   = maxRayDepth * offset;
+    unsigned int radianceIndex    = maxRayDepth * offset;
     float splitSample = GET_1_SAMPLE(sampleList, sampleIndex);
-    unsigned int lightPathMaxDepth = min(maxRayDepth-1,
-            static_cast<unsigned int>(floorf(splitSample*maxRayDepth)));
+//    unsigned int lightPathMaxDepth = min(maxRayDepth,
+//            static_cast<unsigned int>(floorf(splitSample*(maxRayDepth+1))));
+//    unsigned int eyePathMaxDepth   = maxRayDepth - lightPathMaxDepth;
+    unsigned int lightPathMaxDepth = maxRayDepth / 2;
     unsigned int eyePathMaxDepth   = maxRayDepth - lightPathMaxDepth;
+    unsigned int eyePathSamplePointIndex   = samplePointIndex;
+    unsigned int lightPathSamplePointIndex = eyePathSamplePointIndex + eyePathMaxDepth;
 
     Intersection * intersectionList =
         LOCAL_HEAP_GET_OBJECT_POINTER(Intersection, maxRayDepth * sizeof(Intersection) * offset);
@@ -106,7 +131,7 @@ RT_PROGRAM void trace()
     unsigned int depth = 0;
     float3 throughput = make_float3(1.0f);
     for (unsigned int i = 0; i < eyePathMaxDepth; ++i) {
-        SamplePoint & samplePoint = samplePointList[samplePointIndex + depth];
+        SamplePoint & samplePoint = samplePointList[eyePathSamplePointIndex + depth];
 
         // Start from camera.
         if (depth == 0) {
@@ -139,7 +164,7 @@ RT_PROGRAM void trace()
     // Trace light paths.
     depth = 0;
     for (unsigned int i = 0; i < lightPathMaxDepth; ++i) {
-        SamplePoint & samplePoint = samplePointList[samplePointIndex + eyePathMaxDepth + depth];
+        SamplePoint & samplePoint = samplePointList[lightPathSamplePointIndex + depth];
 
         // Start from light.
         if (depth == 0) {
@@ -151,6 +176,8 @@ RT_PROGRAM void trace()
             float  probability;
             float2 sample = GET_2_SAMPLES(sampleList, sampleIndex);
             throughput = light->sampleL(sample, &wo, &probability);
+            if (probability == 0.0f) break;
+            throughput /= probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
         }
         // Start from surface.
@@ -175,40 +202,6 @@ RT_PROGRAM void trace()
         intersection = samplePoint.intersection();
     }
 
-    // Sum path count.
-    {
-        for (unsigned int i = 0; i < maxRayDepth; ++i)
-            pathCountList[pathCountIndex + i] = 0;
-        // pathCountList[0] correspond to path length == 2,
-        // which means it must be a path like: eye <--> bounce point <--> light.
-        // So every valid sample point is also a valid bounce point except the case
-        // it is on a specular surface.
-        for (unsigned int i = 0; i < maxRayDepth; ++i)
-            if (samplePointList[samplePointIndex+i].flags & SamplePoint::isHit &&
-                    !samplePointList[samplePointIndex+i].bsdf()->isSpecular())
-            {
-                ++pathCountList[pathCountIndex];
-            }
-        // Do not recount i == 0.
-        for (unsigned int i = 1; i < eyePathMaxDepth; ++i)
-            if (samplePointList[samplePointIndex+i].flags & SamplePoint::isHit &&
-                    !samplePointList[samplePointIndex+i].bsdf()->isSpecular())
-            {
-                ++pathCountList[pathCountIndex+i];
-            }
-        for (unsigned int i = 0; i < eyePathMaxDepth; ++i) {
-            SamplePoint & eyePathSamplePoint = samplePointList[samplePointIndex + i];
-            if (!(eyePathSamplePoint.flags & SamplePoint::isHit)) break;
-            for (unsigned int j = 0; j < lightPathMaxDepth; ++j) {
-                SamplePoint & lightPathSamplePoint = samplePointList[samplePointIndex + eyePathMaxDepth + j];
-                if (!(lightPathSamplePoint.flags & SamplePoint::isHit)) break;
-                // Add path count.
-                if (!eyePathSamplePoint.bsdf()->isSpecular() && !lightPathSamplePoint.bsdf()->isSpecular())
-                    pathCountList[pathCountIndex + i + j + 1] += 1;
-            }
-        }
-    }
-
     /*
        Let s = the index of vertex from eye path,
            t = the index of vertex from light path.
@@ -223,51 +216,130 @@ RT_PROGRAM void trace()
                          we will ignore this case for now
     */
 
-    float3 L = make_float3(0.0f);
-    for (unsigned int i = 0; i < eyePathMaxDepth; ++i) {
-        SamplePoint & eyePathSamplePoint = samplePointList[samplePointIndex + i];
-        // Do not have to calculate radiance if it's not valid or it's on a specular surface.
-        if (!(eyePathSamplePoint.flags & SamplePoint::isHit))
-            break;
-        if (eyePathSamplePoint.bsdf()->isSpecular())
-            continue;
-
-        // Estimate direct lighting. s > 0, t = 0
-        L += eyePathSamplePoint.throughput * estimateAllDirectLighting(
-             eyePathSamplePoint.intersection()->dg()->point, *eyePathSamplePoint.bsdf(), eyePathSamplePoint.wo) /
-             (pathCountList[pathCountIndex+i]);
-
-        // Link every possible path.
+    // Note that pathCountList[0] correspond to path length == 2.
+    {
+        // s = 0, t = 0: not necessary to calculate.
+        // s > 0, t = 0
+        for (unsigned int i = 0; i < eyePathMaxDepth; ++i) {
+            SamplePoint & eyePathSamplePoint = samplePointList[eyePathSamplePointIndex + i];
+            // Do not have to calculate radiance if it's not valid or it's on a specular surface.
+            if (!(eyePathSamplePoint.flags & SamplePoint::isHit))
+                break;
+            if (eyePathSamplePoint.bsdf()->isSpecular())
+                continue;
+            // Add path count.
+            atomicAdd(&pathCountList[pathCountIndex+i], 1);
+            // Calculate radiance.
+            float3 L = eyePathSamplePoint.throughput * estimateAllDirectLighting(
+                    eyePathSamplePoint.intersection()->dg()->point, *eyePathSamplePoint.bsdf(), eyePathSamplePoint.wo);
+            // Add contribution.
+            atomicAdd(&radianceList[radianceIndex+i].x, L.x);
+            atomicAdd(&radianceList[radianceIndex+i].y, L.y);
+            atomicAdd(&radianceList[radianceIndex+i].z, L.z);
+        }
+//        // s > 0, t > 0
+//        for (unsigned int i = 0; i < eyePathMaxDepth; ++i) {
+//            SamplePoint & eyePathSamplePoint = samplePointList[eyePathSamplePointIndex + i];
+//            // Do not have to calculate radiance if it's not valid or it's on a specular surface.
+//            if (!(eyePathSamplePoint.flags & SamplePoint::isHit))
+//                break;
+//            if (eyePathSamplePoint.bsdf()->isSpecular())
+//                continue;
+//
+//            // Link every possible path.
+//            for (unsigned int j = 0; j < lightPathMaxDepth; ++j) {
+//                SamplePoint & lightPathSamplePoint = samplePointList[lightPathSamplePointIndex + j];
+//                if (!(lightPathSamplePoint.flags & SamplePoint::isHit))
+//                    break;
+//                if (lightPathSamplePoint.bsdf()->isSpecular())
+//                    continue;
+//
+//                // Add path count.
+//                atomicAdd(&pathCountList[pathCountIndex + i+j+1], 1);
+//
+//                // Test visibility.
+//                float3 direction, normalizedDirection;
+//                float distance, distanceSquared;
+//                if (!isVisible(eyePathSamplePoint.intersection()->dg()->point,
+//                            lightPathSamplePoint.intersection()->dg()->point,
+//                            &direction, &normalizedDirection, &distance, &distanceSquared))
+//                {
+//                    continue;
+//                }
+//
+//                // Compute radiance.
+//                float3 fc = eyePathSamplePoint.bsdf()->f(eyePathSamplePoint.wo, normalizedDirection);
+//                float3 fl = lightPathSamplePoint.bsdf()->f(-normalizedDirection, lightPathSamplePoint.wo);
+//                if (isBlack(fc) || isBlack(fl))
+//                    continue;
+//                float G = fabsf(dot(normalizedDirection, eyePathSamplePoint.intersection()->dg()->normal)) *
+//                    fabsf(dot(-normalizedDirection, lightPathSamplePoint.intersection()->dg()->normal)) /
+//                    distanceSquared;
+//                float3 L = fc * fl * G *
+//                    lightPathSamplePoint.throughput * eyePathSamplePoint.throughput /
+//                    pathCountList[pathCountIndex+i+j+1];
+//                // Add contribution.
+//                atomicAdd(&radianceList[radianceIndex + i+j+1].x, L.x);
+//                atomicAdd(&radianceList[radianceIndex + i+j+1].y, L.y);
+//                atomicAdd(&radianceList[radianceIndex + i+j+1].z, L.z);
+//            }
+//        }
+        // s = 0, t > 0, the most tricky one
         for (unsigned int j = 0; j < lightPathMaxDepth; ++j) {
-            SamplePoint & lightPathSamplePoint = samplePointList[samplePointIndex + eyePathMaxDepth + j];
+            SamplePoint & lightPathSamplePoint = samplePointList[lightPathSamplePointIndex + j];
             if (!(lightPathSamplePoint.flags & SamplePoint::isHit))
                 break;
             if (lightPathSamplePoint.bsdf()->isSpecular())
                 continue;
 
-            // Test visibility.
-            float3 direction, normalizedDirection;
-            float distance, distanceSquared;
-            if (!isVisible(eyePathSamplePoint.intersection()->dg()->point,
-                           lightPathSamplePoint.intersection()->dg()->point,
-                           &direction, &normalizedDirection, &distance, &distanceSquared))
-            {
-                continue;
+            // Must first project the point onto the image plane.
+            float3 position = lightPathSamplePoint.intersection()->dg()->point;
+            float3 pos = transformPoint(camera.worldToRaster(), position);
+            uint2  ras = make_uint2(pos.x, pos.y);
+            // Add path count.
+            if (ras.x < camera.width && ras.y < camera.height) {
+                unsigned int offset = LAUNCH_OFFSET_2D(ras, launchSize);
+                unsigned int index  = maxRayDepth * offset;
+                // Add path count.
+                atomicAdd(&pathCountList[index+j], 1);
+                // Calculate radiance.
+                float3 diff = camera.position - lightPathSamplePoint.intersection()->dg()->point;
+                float3 wo = normalize(diff);
+                float distanceSquared = dot(diff, diff);
+                if (!isVisible(camera.position, lightPathSamplePoint.intersection()->dg()->point))
+                    continue;
+                float3 L = lightPathSamplePoint.throughput *
+                    lightPathSamplePoint.bsdf()->f(wo, lightPathSamplePoint.wo) *
+                    fabsf(dot(wo, lightPathSamplePoint.intersection()->dg()->normal)) /
+                    distanceSquared;
+                // Add contribution.
+                atomicAdd(&radianceList[index+j].x, L.x);
+                atomicAdd(&radianceList[index+j].y, L.y);
+                atomicAdd(&radianceList[index+j].z, L.z);
             }
-
-            // Compute radiance.
-            float3 fs = eyePathSamplePoint.bsdf()->f(normalizedDirection, eyePathSamplePoint.wo);
-            float coss = fabsf(dot(eyePathSamplePoint.wo, eyePathSamplePoint.intersection()->dg()->normal));
-            float3 ft = lightPathSamplePoint.bsdf()->f(lightPathSamplePoint.wo, -normalizedDirection);
-            float cost = fabsf(dot(lightPathSamplePoint.wo, lightPathSamplePoint.intersection()->dg()->normal));
-            if (!isBlack(fs) && !isBlack(ft) && coss != 0.0f && cost != 0.0f)
-                L += fs * ft * coss * cost *
-                     lightPathSamplePoint.throughput * eyePathSamplePoint.throughput /
-                     (distanceSquared * pathCountList[pathCountIndex+i+j+1]);
         }
     }
+}   /* -----  end of function trace  ----- */
+
+
+
+/* 
+ * ===  FUNCTION  ==============================================================
+ *         Name:  
+ *  Description:  
+ * =============================================================================
+ */
+RT_PROGRAM void sum()
+{
+    unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
+    unsigned int index  = maxRayDepth * offset;
+
+    float3 L = make_float3(0.0f);
+    for (unsigned int i = 0; i < maxRayDepth; ++i)
+        if (pathCountList[index+i] != 0)
+            L += radianceList[index+i] / pathCountList[index+i];
 
     float frame = static_cast<float>(frameCount);
     outputBuffer[launchIndex] = (1.0f / (frame + 1.0f)) * make_float4(L, 1.0f) +
         (frame / (frame + 1.0f)) * outputBuffer[launchIndex];
-}   /* -----  end of function generatePixelSamples  ----- */
+}   /* -----  end of function clear  ----- */

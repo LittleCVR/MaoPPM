@@ -47,8 +47,12 @@ class PathTracingRenderer : public Renderer {
         ~PathTracingRenderer();
 
     public:
-        static const unsigned int  N_PASSES  = Renderer::N_PASSES + 1;
-        enum Pass { PathTracingPass = Renderer::UserPass };
+        static const unsigned int  N_PASSES  = Renderer::N_PASSES + 3;
+        enum Pass {
+            CleaningPass  = Renderer::UserPass + 0,
+            TracingPass   = Renderer::UserPass + 1,
+            SummingPass   = Renderer::UserPass + 2
+        };
 
         class SamplePoint : public HitPoint {
             public:
@@ -82,8 +86,10 @@ class PathTracingRenderer : public Renderer {
     private:    // attributes
         unsigned int    m_frame;
         unsigned int    m_demandLocalHeapSize;
+        unsigned int    m_maxRayDepth;
         optix::Buffer   m_samplePointList;
         optix::Buffer   m_pathCountList;
+        optix::Buffer   m_radianceList;
 };  /* -----  end of class PathTracingRenderer  ----- */
 }   /* -----  end of namespace MaoPPM  ----- */
 
