@@ -42,7 +42,7 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_USED           = 8;
+        static const unsigned int  DEFAULT_N_IMPORTONS_USED           = 32;
         static const unsigned int  DEFAULT_N_PHOTONS_USED             = 64;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED           = 256*256*4;
         static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD     = 1;

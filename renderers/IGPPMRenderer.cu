@@ -415,12 +415,17 @@ RT_PROGRAM void gatherPhotons()
             ++nValidImportons;
             float3 Li = importon.flux / (M_PIf * importon.radiusSquared);
             indirect += importon.throughput * Li;
+            rtPrintf("flux: %f %f %f, radius: %f, throughput: %f %f %f\n",
+                    importon.flux.x, importon.flux.y, importon.flux.z,
+                    importon.radiusSquared,
+                    importon.throughput.x, importon.throughput.y, importon.throughput.z);
         }
     }
     if (nValidImportons != 0) {
         /* TODO: hard coding */
         float scaleFactor = RGBtoGray(lightList[0].intensity) /
             (totalDirectPhotonFlux - pixelSample.totalDirectPhotonFluxOffset);
+        rtPrintf("scale factor: %f, nValidImportons: %u\n", scaleFactor, nValidImportons);
         indirect *= pixelSample.throughput * scaleFactor / nValidImportons;
     }
 
@@ -437,6 +442,9 @@ RT_PROGRAM void gatherPhotons()
         ++pixelSample.nGathered;
     }
     float3 color = direct + caustic + indirect;
+    rtPrintf("direct:   %f %f %f\n", direct.x, direct.y, direct.z);
+    rtPrintf("caustic:  %f %f %f\n", caustic.x, caustic.y, caustic.z);
+    rtPrintf("indirect: %f %f %f\n", indirect.x, indirect.y, indirect.z);
 
     // Cumulate.
     color = (1.0f / (nSamples + 1.0f)) * color +
