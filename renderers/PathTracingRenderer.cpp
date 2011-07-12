@@ -136,3 +136,42 @@ void PathTracingRenderer::resize(unsigned int width, unsigned int height)
             m_maxRayDepth * sizeof(Intersection);
     setLocalHeapSize(m_demandLocalHeapSize);
 }   /* -----  end of method PathTracingRenderer::resize  ----- */
+
+
+
+void PathTracingRenderer::parseArguments(vector<char *> argumentList)
+{
+    int argc = argumentList.size();
+    for (vector<char *>::iterator it = argumentList.begin();
+         it != argumentList.end(); ++it)
+    {
+        std::string arg(*it);
+        if (arg == "--max-ray-depth") {
+            if (++it != argumentList.end()) {
+                m_maxRayDepth = atoi(*it);
+                cerr << "Set max ray depth to " << m_maxRayDepth << endl;
+            } else {
+                std::cerr << "Missing argument to " << arg << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+        // otherwise
+        else {
+            std::cerr << "Unknown option: '" << arg << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+}   /* -----  end of function PathTracingRenderer::parseArguments  ----- */
+
+
+
+void PathTracingRenderer::printUsageAndExit(bool doExit)
+{
+    std::cerr
+        << "BDPT options:" << std::endl
+        << "     | --max-ray-depth <int>  Set IGPPM to use N importons per thread."               << std::endl
+        << std::endl;
+
+    if (doExit)
+        exit(EXIT_FAILURE);
+}   /* -----  end of function PathTracingRenderer::printUsageAndExit  ----- */

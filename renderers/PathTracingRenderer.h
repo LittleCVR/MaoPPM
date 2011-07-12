@@ -83,6 +83,10 @@ class PathTracingRenderer : public Renderer {
         void    resize(unsigned int width, unsigned int height);
         void    render(const Scene::RayGenCameraData & cameraData);
 
+    public:
+        void    parseArguments(std::vector<char *> argumentList);
+        void    printUsageAndExit(bool doExit = true);
+
     private:    // attributes
         unsigned int    m_frame;
         unsigned int    m_demandLocalHeapSize;
