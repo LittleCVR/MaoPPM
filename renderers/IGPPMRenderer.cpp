@@ -45,9 +45,10 @@ using namespace MaoPPM;
 IGPPMRenderer::IGPPMRenderer(Scene * scene) : Renderer(scene),
     m_radius(DEFAULT_RADIUS),
     m_guidedByImportons(true),
-    m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
+    m_nImportonsUsed(DEFAULT_N_IMPORTONS_USED),
     m_nPhotonsUsed(DEFAULT_N_PHOTONS_USED),
     m_nPhotonsWanted(DEFAULT_N_PHOTONS_WANTED),
+    m_nImportonsPerThread(DEFAULT_N_IMPORTONS_PER_THREAD),
     m_photonShootingPassLaunchWidth(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH),
     m_photonShootingPassLaunchHeight(DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT)
 {
@@ -79,6 +80,11 @@ void IGPPMRenderer::init()
     m_pixelSampleList->setSize(width(), height());
     context()["pixelSampleList"]->set(m_pixelSampleList);
 
+    m_pixelSampleSetList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
+    m_pixelSampleSetList->setElementSize(sizeof(PixelSampleSet));
+    m_pixelSampleSetList->setSize(width(), height());
+    context()["pixelSampleSetList"]->set(m_pixelSampleSetList);
+
     m_importonList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_importonList->setElementSize(sizeof(Importon));
     m_importonList->setSize(m_nImportonsPerThread * width() * height());
@@ -101,6 +107,7 @@ void IGPPMRenderer::init()
     context()["radiusSquared"]->setFloat(m_radius * m_radius);
     context()["maxRayDepth"]->setUint(DEFAULT_MAX_RAY_DEPTH);
     context()["nImportonsPerThread"]->setUint(m_nImportonsPerThread);
+    context()["nImportonsUsed"]->setUint(m_nImportonsUsed);
     context()["nPhotonsUsed"]->setUint(m_nPhotonsUsed);
     // auto generated variables
     context()["frameCount"]->setUint(0);
@@ -148,20 +155,6 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
     context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     if (reset) {
-        // pixel sample
-        debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
-        setLocalHeapPointer(0);
-        launchSize = make_uint2(width(), height());
-        context()["launchSize"]->setUint(launchSize.x, launchSize.y);
-        nSamplesPerThread = 2;
-        generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
-        context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
-        startClock  = clock();
-        context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
-        endClock    = clock();
-        debug("\033[01;36mFinished launching pixel sampling pass in %f secs.\033[00m\n",
-                static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
-
         Light * lightList = static_cast<Light *>(scene()->m_lightList->map());
         Light * light = &lightList[0];
         float accumulated = 0.0f;
@@ -172,6 +165,20 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         }
         scene()->m_lightList->unmap();
     }
+
+    // pixel sample
+    debug("\033[01;36mPrepare to launch pixel sampling pass\033[00m\n");
+    setLocalHeapPointer(0);
+    launchSize = make_uint2(width(), height());
+    context()["launchSize"]->setUint(launchSize.x, launchSize.y);
+    nSamplesPerThread = 2;
+    generateSamples(nSamplesPerThread * launchSize.x * launchSize.y);
+    context()["nSamplesPerThread"]->setUint(nSamplesPerThread);
+    startClock  = clock();
+    context()->launch(PixelSamplingPass, launchSize.x, launchSize.y);
+    endClock    = clock();
+    debug("\033[01;36mFinished launching pixel sampling pass in %f secs.\033[00m\n",
+            static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
     // importon
     debug("\033[01;36mPrepare to launch importon shooting pass\033[00m\n");
@@ -281,12 +288,15 @@ void IGPPMRenderer::resize(unsigned int width, unsigned int height)
     m_pixelSampleList->setSize(width, height);
     debug("\033[01;33mpixelSampleList\033[00m      resized to: \033[01;31m%10u\033[00m.\n",
             sizeof(PixelSample) * width * height);
+    m_pixelSampleSetList->setSize(width, height);
+    debug("\033[01;33mpixelSampleSetList\033[00m   resized to: \033[01;31m%10u\033[00m.\n",
+            sizeof(PixelSampleSet) * width * height);
     m_importonList->setSize(m_nImportonsPerThread * width * height);
     debug("\033[01;33mimportonList\033[00m         resized to: \033[01;31m%10u\033[00m.\n",
             sizeof(Importon) * m_nImportonsPerThread * width * height);
     m_directPhotonFluxList->setSize(m_photonShootingPassLaunchWidth, m_photonShootingPassLaunchHeight);
     debug("\033[01;33mdirectPhotonFluxList\033[00m resized to: \033[01;31m%10u\033[00m.\n",
-            sizeof(Importon) * m_nImportonsPerThread * width * height);
+            sizeof(float) * m_nImportonsPerThread * width * height);
 
     // Local heap.
     m_pixelSamplingPassLocalHeapSize =

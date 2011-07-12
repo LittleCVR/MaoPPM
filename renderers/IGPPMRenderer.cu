@@ -41,8 +41,9 @@ using namespace MaoPPM;
 
 
 
-typedef IGPPMRenderer::PixelSample  PixelSample;
-typedef IGPPMRenderer::Importon     Importon;
+typedef IGPPMRenderer::PixelSample     PixelSample;
+typedef IGPPMRenderer::PixelSampleSet  PixelSampleSet;
+typedef IGPPMRenderer::Importon        Importon;
 #define Photon IGPPMRenderer::Photon
 
 
@@ -50,17 +51,19 @@ typedef IGPPMRenderer::Importon     Importon;
 rtDeclareVariable(uint2, launchIndex, rtLaunchIndex, );
 rtDeclareVariable(uint2, launchSize ,              , );
 
-rtBuffer<float4,      2>  outputBuffer;
-rtBuffer<PixelSample, 2>  pixelSampleList;
-rtBuffer<Importon,    1>  importonList;
-rtBuffer<Photon,      1>  photonList;
-rtBuffer<Photon,      1>  photonMap;
-rtBuffer<float,       2>  directPhotonFluxList;
-rtBuffer<float,       1>  sampleList;
+rtBuffer<float4,         2>  outputBuffer;
+rtBuffer<PixelSample,    2>  pixelSampleList;
+rtBuffer<PixelSampleSet, 2>  pixelSampleSetList;
+rtBuffer<Importon,       1>  importonList;
+rtBuffer<Photon,         1>  photonList;
+rtBuffer<Photon,         1>  photonMap;
+rtBuffer<float,          2>  directPhotonFluxList;
+rtBuffer<float,          1>  sampleList;
 
 rtDeclareVariable(uint,  guidedByImportons  , , );
-rtDeclareVariable(float, radiusSquared  , , );
+rtDeclareVariable(float, radiusSquared      , , );
 rtDeclareVariable(uint,  maxRayDepth        , , );
+rtDeclareVariable(uint,  nImportonsUsed     , , );
 rtDeclareVariable(uint,  nImportonsPerThread, , );
 
 rtDeclareVariable(uint,  frameCount           , , );
@@ -83,8 +86,17 @@ rtDeclareVariable(ShadowRayPayload, shadowRayPayload, rtPayload, );
  */
 RT_PROGRAM void generatePixelSamples()
 {
+    if (frameCount == 0)
+        pixelSampleSetList[launchIndex].reset();
+
     // Clear pixel sample.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
+    if (frameCount != 0 &&
+        pixelSample.flags & PixelSample::isHit &&
+        !(pixelSample.flags & PixelSample::Resample))
+    {
+        return;
+    }
     pixelSample.reset();
 
     // Generate camera ray.
@@ -226,7 +238,6 @@ RT_PROGRAM void shootPhotons()
                 Le = light->sampleL(sample, &wo, &probability,
                         &thetaBin, &phiBin);
                 binFlags = (thetaBin << 24) | (phiBin << 16);
-                rtPrintf("wo: %f %f %f, binFlags: %u\n", wo.x, wo.y, wo.z, binFlags);
             }
             flux = Le / probability;
             ray = Ray(light->position, wo, NormalRay, rayEpsilon);
@@ -265,16 +276,16 @@ RT_PROGRAM void shootPhotons()
         photon.wi       = wi;
         photon.flux     = flux;
 
-        /* TODO */
-        if (photon.flags & Photon::Direct && depth == 1) {
-            float3 position = intersection->dg()->point;
-            float3 pos = transformPoint(camera.worldToRaster(), position);
-            uint2  ras = make_uint2(pos.x, pos.y);
-            if (ras.x < camera.width && ras.y < camera.height) {
-                if (isVisible(camera.position, position))
-                    outputBuffer[ras] = make_float4(0.5f, 0.0f, 0.0f, 0.0f);
-            }
-        }
+//        /* TODO */
+//        if (photon.flags & Photon::Direct && depth == 1) {
+//            float3 position = intersection->dg()->point;
+//            float3 pos = transformPoint(camera.worldToRaster(), position);
+//            uint2  ras = make_uint2(pos.x, pos.y);
+//            if (ras.x < camera.width && ras.y < camera.height) {
+//                if (isVisible(camera.position, position))
+//                    outputBuffer[ras] = make_float4(0.5f, 0.0f, 0.0f, 0.0f);
+//            }
+//        }
 
         // After traceUntilNonSpecularSurface(),
         // photons should be all indirect now.
@@ -299,7 +310,15 @@ RT_PROGRAM void gatherPhotons()
 {
     // Do not have to gather photons if pixel sample was not hit.
     PixelSample & pixelSample = pixelSampleList[launchIndex];
-    if (!(pixelSample.flags & PixelSample::isHit)) return;
+    PixelSampleSet & pixelSampleSet = pixelSampleSetList[launchIndex];
+    float nSamples = static_cast<float>(pixelSampleSet.nSamples);
+    if (!(pixelSample.flags & PixelSample::isHit)) {
+        pixelSampleSet.radiance *= (nSamples / (nSamples + 1.0f));
+        ++pixelSampleSet.nSamples;
+        pixelSample.flags |= PixelSample::Resample;
+        outputBuffer[launchIndex] = make_float4(pixelSampleSet.radiance, 1.0f);
+        return;
+    }
 
     uint offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
     uint importonIndex = nImportonsPerThread * offset;
@@ -417,5 +436,15 @@ RT_PROGRAM void gatherPhotons()
         pixelSample.indirect = indirect;
         ++pixelSample.nGathered;
     }
-    outputBuffer[launchIndex] = make_float4(direct + caustic + indirect, 1.0f);
+    float3 color = direct + caustic + indirect;
+
+    // Cumulate.
+    color = (1.0f / (nSamples + 1.0f)) * color +
+        (nSamples / (nSamples + 1.0f)) * pixelSampleSet.radiance;
+    if (pixelSample.nGathered >= nImportonsUsed) {
+        pixelSampleSet.radiance = color;
+        ++pixelSampleSet.nSamples;
+        pixelSample.flags |= PixelSample::Resample;
+    }
+    outputBuffer[launchIndex] = make_float4(color, 1.0f);
 }   /* -----  end of function gatherPhotons  ----- */

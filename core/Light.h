@@ -174,7 +174,6 @@ __device__ __forceinline__ optix::float3 Light::sampleL(
         }
     *thetaBin = index / N_PHI;
     *phiBin   = index % N_PHI;
-    rtPrintf("thetaBin: %u, phiBin: %u\n", *thetaBin, *phiBin);
 
     *probability = (index == 0 ? cdf[index] : cdf[index] - cdf[index-1]) /
         area(*thetaBin, *phiBin);
@@ -193,18 +192,6 @@ __device__ __forceinline__ optix::float3 Light::sampleL(
     *wo = optix::make_float3(x, y, z);
 
     return intensity;
-
-//    if (launchIndex.x == 128 && launchIndex.y == 128) {
-//        float theta = acosf(wo.z);
-//        float phi   = acosf(wo.x);
-//        if (wo.y < 0.0f) phi += M_PIf;
-//        theta = theta * 180.0f / M_PIf;
-//        phi   = phi   * 180.0f / M_PIf;
-//        rtPrintf("tb: %u, pb: %u, zMin: %f, zMax: %f, pMin: %f, pMax: %f, ",
-//                thetaBin, phiBin, zMin, zMax, pMin, pMax);
-//        rtPrintf("s.x: %f, s.y: %f, theta: %f, phi: %f, flux: %f %f %f\n",
-//                s.x, s.y, theta, phi, flux.x, flux.y, flux.z);
-//    }
 }
 
 #endif  /* -----  #ifdef __CUDACC__  ----- */

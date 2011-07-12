@@ -42,10 +42,10 @@ namespace MaoPPM {
  */
 class IGPPMRenderer : public Renderer {
     public:
-        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD     = 1;
+        static const unsigned int  DEFAULT_N_IMPORTONS_USED           = 8;
         static const unsigned int  DEFAULT_N_PHOTONS_USED             = 64;
         static const unsigned int  DEFAULT_N_PHOTONS_WANTED           = 256*256*4;
-        static const unsigned int  DEFAULT_N_RADIANCE_PHOTONS_WANTED  = 256*256*4/8;
+        static const unsigned int  DEFAULT_N_IMPORTONS_PER_THREAD     = 1;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_WIDTH   = 256;
         static const unsigned int  DEFAULT_PHOTON_SHOOTING_PASS_LAUNCH_HEIGHT  = 256;
 
@@ -65,7 +65,8 @@ class IGPPMRenderer : public Renderer {
         class PixelSample : public GatherPoint {
             public:
                 enum Flag {
-                    Regather  = GatherPoint::User << 0
+                    Resample  = GatherPoint::User << 0,
+                    Regather  = GatherPoint::User << 1
                 };
 
             public:
@@ -81,8 +82,21 @@ class IGPPMRenderer : public Renderer {
                     GatherPoint::reset();
                     throughput = optix::make_float3(1.0f);
                     indirect   = optix::make_float3(0.0f);
-                    nGathered             = 0;
+                    nGathered  = 0;
                     totalDirectPhotonFluxOffset = 0.0f;
+                }
+        };
+
+        class PixelSampleSet {
+            public:
+                unsigned int   nSamples;
+                optix::float3  radiance;
+
+            public:
+                __device__ __forceinline__ void reset()
+                {
+                    nSamples = 0;
+                    radiance = optix::make_float3(0.0f);
                 }
         };
 
@@ -125,6 +139,7 @@ class IGPPMRenderer : public Renderer {
     private:
         bool           m_guidedByImportons;
         float          m_radius;
+        unsigned int   m_nImportonsUsed;
         unsigned int   m_nPhotonsUsed;
         unsigned int   m_nPhotonsWanted;
         unsigned int   m_nRadiancePhotonsWanted;
@@ -135,6 +150,7 @@ class IGPPMRenderer : public Renderer {
         unsigned int   m_photonShootingPassLaunchHeight;
         float          m_totalDirectPhotonFlux;
         optix::Buffer  m_pixelSampleList;
+        optix::Buffer  m_pixelSampleSetList;
         optix::Buffer  m_importonList;
         optix::Buffer  m_photonMap;
         optix::Buffer  m_directPhotonFluxList;

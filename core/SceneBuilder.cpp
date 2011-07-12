@@ -95,7 +95,7 @@ void SceneBuilder::translate(float dx, float dy, float dz)
     m[ 4] = 0.0f; m[ 5] = 1.0f; m[ 6] = 0.0f; m[ 7] = dy;
     m[ 8] = 0.0f; m[ 9] = 0.0f; m[10] = 1.0f; m[11] = dz;
     m[12] = 0.0f; m[13] = 0.0f; m[14] = 0.0f; m[15] = 1.0f;
-    m_currentState.transform = Matrix4x4(m) * m_currentState.transform;
+    m_currentState.transform = m_currentState.transform * Matrix4x4(m);
 }
 
 
@@ -113,7 +113,7 @@ void SceneBuilder::scale(float sx, float sy, float sz)
     m[ 4] = 0.0f; m[ 5] =  sy ; m[ 6] = 0.0f; m[ 7] = 0.0f;
     m[ 8] = 0.0f; m[ 9] = 0.0f; m[10] =  sz ; m[11] = 0.0f;
     m[12] = 0.0f; m[13] = 0.0f; m[14] = 0.0f; m[15] = 1.0f;
-    m_currentState.transform = Matrix4x4(m) * m_currentState.transform;
+    m_currentState.transform = m_currentState.transform * Matrix4x4(m);
 }
 
 
