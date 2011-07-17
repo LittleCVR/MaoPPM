@@ -261,10 +261,12 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
             static_cast<float>(endClock-startClock) / CLOCKS_PER_SEC);
 
 
+    total = 0.0f;
     float * directPhotonFluxList = static_cast<float *>(m_directPhotonFluxList->map());
     for (unsigned int i = 0; i < m_photonShootingPassLaunchWidth*m_photonShootingPassLaunchHeight; ++i)
-        m_totalDirectPhotonFlux += directPhotonFluxList[i];
+        total += directPhotonFluxList[i];
     m_directPhotonFluxList->unmap();
+    m_totalDirectPhotonFlux += total;
     context()["totalDirectPhotonFlux"]->setFloat(m_totalDirectPhotonFlux);
 
     // gathering

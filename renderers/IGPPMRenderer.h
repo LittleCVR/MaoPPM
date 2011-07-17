@@ -91,12 +91,14 @@ class IGPPMRenderer : public Renderer {
             public:
                 unsigned int   nSamples;
                 optix::float3  radiance;
+                float          totalDirectPhotonFluxOffset;
 
             public:
                 __device__ __forceinline__ void reset()
                 {
                     nSamples = 0;
                     radiance = optix::make_float3(0.0f);
+                    totalDirectPhotonFluxOffset = 0.0f;
                 }
         };
 
