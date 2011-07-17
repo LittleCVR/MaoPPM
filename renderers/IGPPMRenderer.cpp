@@ -221,20 +221,20 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
         light->pdf[i] /= total;
         accumulated += light->pdf[i];
         area += light->normalizedArea(i/N_PHI, i%N_PHI);
-        if (i % N_THETA == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%8.8f ", light->pdf[i]);
+//        if (i % N_THETA == 0) fprintf(stderr, "\n");
+//        fprintf(stderr, "%8.8f ", light->pdf[i]);
         if (total != 0.0f)
             light->cdf[i] = 0.7f * area + 0.3f * accumulated;
         light->pdf[i] = 0.0f;
     }
-    fprintf(stderr, "\n");
+//    fprintf(stderr, "\n");
     debug("light CDF:");
     for (unsigned int i = 0; i < N_THETA*N_PHI; ++i) {
         light->cdf[i] /= light->cdf[N_THETA*N_PHI-1];
-        if (i % N_THETA == 0) fprintf(stderr, "\n");
-        fprintf(stderr, "%8.8f ", light->cdf[i]);
+//        if (i % N_THETA == 0) fprintf(stderr, "\n");
+//        fprintf(stderr, "%8.8f ", light->cdf[i]);
     }
-    fprintf(stderr, "\n");
+//    fprintf(stderr, "\n");
     scene()->m_lightList->unmap();
 
     // photon

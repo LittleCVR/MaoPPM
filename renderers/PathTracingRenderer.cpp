@@ -61,6 +61,8 @@ void PathTracingRenderer::init()
 {
     Renderer::preInit();
 
+    debug("sizeof(SamplePoint) = \033[01;31m%4d\033[00m.\n", sizeof(SamplePoint));
+
     // buffers
     m_samplePointList = context()->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_USER);
     m_samplePointList->setElementSize(sizeof(SamplePoint));

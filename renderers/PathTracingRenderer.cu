@@ -104,11 +104,11 @@ RT_PROGRAM void trace()
     unsigned int pathCountIndex   = maxRayDepth * offset;
     unsigned int radianceIndex    = maxRayDepth * offset;
     float splitSample = GET_1_SAMPLE(sampleList, sampleIndex);
-//    unsigned int lightPathMaxDepth = min(maxRayDepth,
-//            static_cast<unsigned int>(floorf(splitSample*(maxRayDepth+1))));
-//    unsigned int eyePathMaxDepth   = maxRayDepth - lightPathMaxDepth;
-    unsigned int lightPathMaxDepth = maxRayDepth / 2;
+    unsigned int lightPathMaxDepth = min(maxRayDepth,
+            static_cast<unsigned int>(floorf(splitSample*(maxRayDepth+1))));
     unsigned int eyePathMaxDepth   = maxRayDepth - lightPathMaxDepth;
+//    unsigned int lightPathMaxDepth = maxRayDepth / 2;
+//    unsigned int eyePathMaxDepth   = maxRayDepth - lightPathMaxDepth;
     unsigned int eyePathSamplePointIndex   = samplePointIndex;
     unsigned int lightPathSamplePointIndex = eyePathSamplePointIndex + eyePathMaxDepth;
 
@@ -154,7 +154,6 @@ RT_PROGRAM void trace()
         ++depth;
 
         samplePoint.flags |= SamplePoint::isHit;
-        samplePoint.setBSDF(bsdf);
         samplePoint.wo         = wo;
         samplePoint.throughput = throughput;
 
@@ -195,7 +194,6 @@ RT_PROGRAM void trace()
         ++depth;
 
         samplePoint.flags |= SamplePoint::isHit;
-        samplePoint.setBSDF(bsdf);
         samplePoint.wo         = wo;
         samplePoint.throughput = throughput;
 
@@ -225,13 +223,14 @@ RT_PROGRAM void trace()
             // Do not have to calculate radiance if it's not valid or it's on a specular surface.
             if (!(eyePathSamplePoint.flags & SamplePoint::isHit))
                 break;
-            if (eyePathSamplePoint.bsdf()->isSpecular())
+            eyePathSamplePoint.intersection()->getBSDF(&bsdf);
+            if (bsdf.isSpecular())
                 continue;
             // Add path count.
             atomicAdd(&pathCountList[pathCountIndex+i], 1);
             // Calculate radiance.
             float3 L = eyePathSamplePoint.throughput * estimateAllDirectLighting(
-                    eyePathSamplePoint.intersection()->dg()->point, *eyePathSamplePoint.bsdf(), eyePathSamplePoint.wo);
+                    eyePathSamplePoint.intersection()->dg()->point, bsdf, eyePathSamplePoint.wo);
             // Add contribution.
             atomicAdd(&radianceList[radianceIndex+i].x, L.x);
             atomicAdd(&radianceList[radianceIndex+i].y, L.y);
@@ -291,7 +290,8 @@ RT_PROGRAM void trace()
             SamplePoint & lightPathSamplePoint = samplePointList[lightPathSamplePointIndex + j];
             if (!(lightPathSamplePoint.flags & SamplePoint::isHit))
                 break;
-            if (lightPathSamplePoint.bsdf()->isSpecular())
+            lightPathSamplePoint.intersection()->getBSDF(&bsdf);
+            if (bsdf.isSpecular())
                 continue;
 
             // Must first project the point onto the image plane.
@@ -302,16 +302,16 @@ RT_PROGRAM void trace()
             if (ras.x < camera.width && ras.y < camera.height) {
                 unsigned int offset = LAUNCH_OFFSET_2D(ras, launchSize);
                 unsigned int index  = maxRayDepth * offset;
-                // Add path count.
-                atomicAdd(&pathCountList[index+j], 1);
                 // Calculate radiance.
                 float3 diff = camera.position - lightPathSamplePoint.intersection()->dg()->point;
                 float3 wo = normalize(diff);
                 float distanceSquared = dot(diff, diff);
                 if (!isVisible(camera.position, lightPathSamplePoint.intersection()->dg()->point))
                     continue;
+                // Add path count.
+                atomicAdd(&pathCountList[index+j], 1);
                 float3 L = lightPathSamplePoint.throughput *
-                    lightPathSamplePoint.bsdf()->f(wo, lightPathSamplePoint.wo) *
+                    bsdf.f(wo, lightPathSamplePoint.wo) *
                     fabsf(dot(wo, lightPathSamplePoint.intersection()->dg()->normal)) /
                     distanceSquared;
                 // Add contribution.

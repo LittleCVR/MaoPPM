@@ -98,6 +98,7 @@ RT_PROGRAM void generatePixelSamples()
         return;
     }
     pixelSample.reset();
+    pixelSampleSetList[launchIndex].totalDirectPhotonFluxOffset = totalDirectPhotonFlux;
 
     // Generate camera ray.
     unsigned int offset = LAUNCH_OFFSET_2D(launchIndex, launchSize);
@@ -367,8 +368,7 @@ RT_PROGRAM void gatherPhotons()
     // Caustic.
     float3 caustic = pixelSample.throughput * pixelSample.flux /
         (M_PIf * pixelSample.radiusSquared) *
-        (RGBtoGray(lightList[0].intensity) /
-         (totalDirectPhotonFlux - pixelSampleSet.totalDirectPhotonFluxOffset));
+        (RGBtoGray(lightList[0].intensity) / (totalDirectPhotonFlux - pixelSampleSet.totalDirectPhotonFluxOffset));
 
     // Compute indirect illumination.
     float smallestReductionFactor2 = 0.0f;

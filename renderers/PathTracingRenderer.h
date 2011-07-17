@@ -64,18 +64,6 @@ class PathTracingRenderer : public Renderer {
                     HitPoint::reset();
                     throughput = optix::make_float3(0.0f);
                 }
-
-                __device__ __forceinline__ BSDF * bsdf()
-                {
-                    return reinterpret_cast<BSDF *>(m_bsdf);
-                }
-                __device__ __forceinline__ void setBSDF(const BSDF & b)
-                {
-                    *bsdf() = b;
-                }
-
-            private:
-                char           m_bsdf[sizeof(BSDF)];
         };
 
     public:     // methods
