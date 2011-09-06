@@ -5,9 +5,9 @@ Build the Project
 In order to build the project, you will need nVIDIA's OptiX. Install OptiX
 first if you don't have it. Then put the project's root directory into OptiX's
 SDK directory, e.g.
-    
+
     PathToOptiX/SDK/MaoPPM
-    
+
 and add the project to OptiX SDK's CMakeList.txt, e.g.
 
     add_subdirectory(MaoPPM)
