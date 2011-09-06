@@ -102,6 +102,32 @@ void SceneBuilder::translate(float dx, float dy, float dz)
 
 void SceneBuilder::rotate(float angle, float x, float y, float z)
 {
+    float3 a = normalize(make_float3(x, y, z));
+    float s = sinf(angle * M_PIf / 180.0f);
+    float c = cosf(angle * M_PIf / 180.0f);
+    float m[16];
+
+    m[0]  = a.x * a.x + (1.f - a.x * a.x) * c;
+    m[1]  = a.x * a.y * (1.f - c) - a.z * s;
+    m[2]  = a.x * a.z * (1.f - c) + a.y * s;
+    m[3]  = 0;
+
+    m[4]  = a.x * a.y * (1.f - c) + a.z * s;
+    m[5]  = a.y * a.y + (1.f - a.y * a.y) * c;
+    m[6]  = a.y * a.z * (1.f - c) - a.x * s;
+    m[7]  = 0;
+
+    m[8]  = a.x * a.z * (1.f - c) - a.y * s;
+    m[9]  = a.y * a.z * (1.f - c) + a.x * s;
+    m[10] = a.z * a.z + (1.f - a.z * a.z) * c;
+    m[11] = 8;
+
+    m[12] = 0;
+    m[13] = 0;
+    m[14] = 0;
+    m[15] = 1;
+
+    m_currentState.transform = m_currentState.transform * Matrix4x4(m);
 }
 
 

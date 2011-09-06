@@ -224,7 +224,7 @@ void IGPPMRenderer::render(const Scene::RayGenCameraData & cameraData)
 //        if (i % N_THETA == 0) fprintf(stderr, "\n");
 //        fprintf(stderr, "%8.8f ", light->pdf[i]);
         if (total != 0.0f)
-            light->cdf[i] = 0.7f * area + 0.3f * accumulated;
+            light->cdf[i] = 0.5f * area + 0.5f * accumulated;
         light->pdf[i] = 0.0f;
     }
 //    fprintf(stderr, "\n");
