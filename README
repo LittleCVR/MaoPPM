@@ -21,6 +21,19 @@ directory and type the following commands:
 Now you can use cmake to generate the Makefile and build the project.
 
 
+If your compiler complains that it cannot find the "atomicAdd(...)" function,
+you have to specify the "-arch" option for nvcc. When configuring using CMake,
+find the "CUDA_NVCC_FLAGS" option and append "-arch=compute_20" to the value.
+
+Note that you cannot simply separate the arguments by space, you must separate
+them by colon. But for other options like "CMAKE_CXX_FLAGS_RELEASE" you should
+separate them by space, this should be the OptiX's problem.
+
+So on my machine the value looks like this:
+
+    --use_fast_math;-arch=compute_20;-code=sm_21
+
+
 
 ================================================================================
 Run the Program
